@@ -1,0 +1,6 @@
+.httr-oauth
+*.RData
+*.Rproj
+.Rproj.user
+*.pdf
+*.json

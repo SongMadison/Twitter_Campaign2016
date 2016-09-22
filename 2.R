@@ -1,13 +1,6 @@
 rm(list=ls())
 library(twitteR)
 load('credential.RData')
-#step 0: setup twitter credentials
-
-# consumer_key ='QqZQMhTFqF6Ap5p5DTC9AcxBc'
-# consumer_secret = 'PPScyl8yoDjB8JBriys19ujfYgbFKMrq1LrmiqXcxu83N2OU1F'
-# access_token ='518543036-fJ3IdymSwn3YNrCOc4hR4bADXy5gzfRwkP3Ohlfr'
-# access_secret = 'MaNPSGJPyMLysjHcOPIIRvPXYASZMQsePYorVzHg9oXGC'
-#save(consumer_key, consumer_secret,access_token, access_secret, file = 'credential.RData')
 
 setup_twitter_oauth(consumer_key, consumer_secret,access_token, access_secret)
 
