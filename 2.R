@@ -38,7 +38,15 @@ a.friends.info <- do.call('rbind',lapply(a.friends, function(x) as.data.frame(ge
 
 
 
-
+#jure
+# 169 friends; 16.9 K follwers
+b = getUser(user= 'jure')
+proc.time()
+b.followers <- b$getFollowers()
+proc.time()
+b.followers.info <- do.call('rbind',lapply(b.followers, function(x) as.data.frame(getUser(user = x))))
+b.friends <- a$getFriends()
+b.friends.info <- do.call('rbind',lapply(b.friends, function(x) as.data.frame(getUser(user = x))))
 
 ######################################################################
 ##### A goal here is to figure out how people twittered this status:
@@ -68,7 +76,10 @@ followers.info = do.call("rbind", lapply(df_trump_sub$screenName,function(x) as.
 
 
 
-
+## retweet 
+rt.sample <- retweets(id = '778238281196662784', n =100)
+rt.sample.df <- rbindlist(lapply(rt.sample,as.data.frame))
+as.data.frame(showStatus(i='778238281196662784'))
 ###########################################################################################
 ###  study that bipartite relationships between twittes and users
 ###########################################################################################
