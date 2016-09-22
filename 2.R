@@ -43,6 +43,10 @@ a.friends <- a$getFriends()
 a.friends.info <- do.call('rbind',lapply(a.friends, function(x) as.data.frame(getUser(user = x))))
 
 
+
+
+
+
 ######################################################################
 ##### A goal here is to figure out how people twittered this status:
 ######################################################################
