@@ -33,7 +33,7 @@ download_favorite_twittes <- function( sn ){
 
 p1 <- proc.time()
 favor_twittes <- list()
-for ( i in 1:400){
+for ( i in 1:1500){
     user_obj <- trump.followers.info[i,]
     if (user_obj$protected){
         favor_twittes[[user_obj$id]] <- list()
@@ -48,6 +48,7 @@ sapply(favor_twittes,length)
 which(favor_twittes == 'NA')
 
 
+save(favor_twittes, file = "favaor_twites_1500.RData")
 
 
 
