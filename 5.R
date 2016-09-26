@@ -25,6 +25,20 @@ ur <- getUser(user = 'realDonaldTrump')  # return a user object
 #
 #ur.followerIDs <- ur$getFollowerIDs( retryOnRateLimit = 15) ## n =100, a list of IDs
 ur.followers <- ur$getFollowers(n = 1440000, retryOnRateLimit = 15)
+
+trump <- getUser(user = 'realDonaldTrump')  # rettrumpn a user object
+
+trump.followerIDs <- trump$getFollowerIDs(n = 10000, retryOnRateLimit = 15) ## a list of IDs
+trump.followers <- trump$getFollowers(n = 10000, retryOnRateLimit = 15)
+system.time ( trump.followers.info <-  do.call('rbind',lapply(trump.followers, as.data.frame)))
+system.time(a <- rbindlist(lapply(trump.followers,as.data.frame)))
+
+favorited_twittes <- list()
+p1 <- proc.time()
+for (user_obj in trump.followers[1:100]){
+    favorited_twittes[[user_obj$screenName]] <- favorites(user = user_obj, n = 200, retryOnRateLimit = 15)
+}
+
 proc.time()-p1
 # 20k -- 20 mins
 save.image(file = "followers_whole.RData" )
@@ -47,3 +61,4 @@ proc.time() - p1
 # 
 # 
 # favorites(user = 'swang282')
+
