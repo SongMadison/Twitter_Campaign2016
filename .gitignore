@@ -4,3 +4,6 @@
 .Rproj.user
 *.pdf
 *.json
+*.csv
+.Rhistory
+*.out
