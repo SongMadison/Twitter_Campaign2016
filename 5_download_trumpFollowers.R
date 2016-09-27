@@ -34,9 +34,10 @@ proc.time()- p1
 #system.time ( ur.followers.info <-  do.call('rbind',lapply(trump.followers, as.data.frame)))
 system.time(trump.followers.info <- rbindlist(lapply(trump.followers,as.data.frame)))  #faster
 
-trump.followers.info <- rbindlist(lapply(trump.followers,as.data.frame))
+
+
 # 20k -- 20 mins
 save.image(file = "followers_whole.RData")
-write.csv(trump.followers.info, file = paste0("./data/trump_followersInfo_",Sys.Date(),".csv"))
+write.csv(trump_followers_info, file = paste0("./data/trump_followersInfo_",Sys.Date(),".csv"))
 proc.time() - p1
 
