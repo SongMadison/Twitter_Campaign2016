@@ -38,7 +38,8 @@ for ( i in 1:400){
     if (user_obj$protected){
         favor_twittes[[user_obj$id]] <- list()
     }else{
-        favor_twittes[[user_obj$id]] <- download_favorite_twittes( user_obj$screenName )
+        favor_twittes[[user_obj$id]] <- 
+                        download_favorite_twittes( user_obj$screenName )
     }
     cat("i=", i, "\n")
 }
