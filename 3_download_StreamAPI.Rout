@@ -17,6 +17,8 @@ Type 'demo()' for some demos, 'help()' for on-line help, or
 'help.start()' for an HTML browser interface to help.
 Type 'q()' to quit R.
 
+[Previously saved workspace restored]
+
 > 
 > 
 > # This script is going to use the streaming API to download trump related twittes
@@ -27,9 +29,19 @@ Loading required package: bitops
 Loading required package: rjson
 > load("credential.RData")
 > 
-> filterStream(file.name = "trump_tweets.json", # save tweets in a json file. 
+> filterStream(file.name = "tweets_ing.json", # save tweets in a json file. 
 +              track = c('@realDonaldTrump'),
 +              language = 'en',
-+              timeout = 15*60*60, # running for 60 seconds,
++              timeout = 0, # running for 60 seconds,
 +              oauth = my_oauth)
 Capturing tweets...
+Connection to Twitter stream was closed after 72144 seconds with up to 442801 tweets downloaded.
+> 
+> # tweets_df <- parseTweets("trump_tweets.json", simplify = FALSE)
+> # 
+> # 
+> # grep(pattern = '@realDonaldTrump',x =tweets_df$text[1:100])
+> 
+> proc.time()
+     user    system   elapsed 
+   31.442    47.671 72144.933 

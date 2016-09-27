@@ -6,3 +6,11 @@
 *.json
 .Rhistory
 *.csv
+.Rhistory
+*.out
+*.RDataTmp
+*.Rout
+
+./data/
+./examples/
+
