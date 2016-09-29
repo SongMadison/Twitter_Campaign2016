@@ -24,7 +24,7 @@ for (filename in files){
     for (j in 1:length(sn_k)){
         id_j <-  favor_k[favor_k$follower_sn == sn_k[j],]$id
         i_j <- match(id_j, id_trump_timeline)
-        i_j <- i_set[which(i_j !='NA')]
+        i_j <- i_j[which(i_j !='NA')]
         i_set <- c(i_set,i_j)
         j_set <- c(j_set, rep(j, length(i_j)))
     }
