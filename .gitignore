@@ -1,14 +1,33 @@
 .httr-oauth
-*.RData
-*.Rproj
-.Rproj.user
-*.pdf
-*.json
-*.csv
-.Rhistory
-*.out
-*.RDataTmp
-*.Rout
 
-./data/
-./examples/
+data/
+output/
+report/
+smappR/
+credentials/
+twitteR/
+
+
+#Hisotry files
+.Rhistory
+.Rapp.history
+
+#Session Data files
+.RData
+
+#zipped file
+*.tar.gz
+
+
+#data file
+*.RData
+*.json
+
+
+#Rmarkdown
+*.html
+*.Rmd
+
+
+0_credential.R
+

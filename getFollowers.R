@@ -1,5 +1,0 @@
-library(smappR)
-fbfollowers <- getFollowers("FredBoehm128", oauth_folder = "~/Dropbox/credentials")
-trump_followers <- getFollowers("realDonaldTrump", oauth_folder = "~/Dropbox/credentials", sleep = 30)
-save(list = "trump_followers", file = "trump_followers_id_only.RData")
-getUsersBatch(ids = trump_followers, oauth_folder = "~/Dropbox/credentials", include_entities = TRUE, verbose = TRUE, output = "data/trump_followers_screen-names.json")
