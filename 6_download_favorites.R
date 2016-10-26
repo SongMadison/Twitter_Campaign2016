@@ -1,5 +1,6 @@
 rm(list=ls())
 library(twitteR)
+
 library(data.table, quietly = T)
 load('../data/credential.RData')
 
@@ -31,7 +32,6 @@ if (CMDLine == TRUE){
 }
 
 
-
 if (CMDLine == FALSE){
   k = 3
   ## parameters: min_favorite, buffer_size, experiment_size
@@ -55,7 +55,6 @@ setup_twitter_oauth(consumer_key, consumer_secret,access_token, access_secret)
 idx <- which(trump_followers_info$protected != TRUE 
              & trump_followers_info$favoritesCount >5 )
 SNs <- trump_followers_info[idx,]$screenName
-
 
 
 

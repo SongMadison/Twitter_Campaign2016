@@ -2,6 +2,8 @@ rm(list=ls())
 library(twitteR)
 load('credential.RData')
 
+
+#setup twitter credentials
 setup_twitter_oauth(consumer_key, consumer_secret,access_token, access_secret)
 
 
@@ -86,7 +88,7 @@ as.data.frame(showStatus(i='778238281196662784'))
 # from Trump's timeline
 # containing '@realDonaldTrump' to get a set of people of who twitted each status
 lst_trump_timeline
-lst_trump_timeline = userTimeline(user = 'realDonaldTrump', n = 4000)  # only returned 1329, user_timeline has a cap of 3200
+lst_trump_timeline = userTimeline(user = 'realDonaldTrump', n= 3200)  # only returned 1329, user_timeline has a cap of 3200
 df_trump_timeline = do.call("rbind", lapply(lst_trump_timeline, as.data.frame))
 
 unique(df_trump_timeline$replyToSID) # 1 others' twitte."766741570024534016" and NA
@@ -102,3 +104,5 @@ followers.info = do.call("rbind", lapply(df_trump_sub$screenName,function(x) as.
 ##
 
 
+# one of trump of likes
+dat <- favorites('PartholonSon')

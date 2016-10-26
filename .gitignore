@@ -24,10 +24,22 @@ twitteR/
 *.json
 
 
+
 #Rmarkdown
 *.html
 *.Rmd
 
 
 0_credential.R
+
+.Rhistory
+*.csv
+.Rhistory
+*.out
+*.RDataTmp
+*.Rout
+
+./data/
+./examples/
+
 
