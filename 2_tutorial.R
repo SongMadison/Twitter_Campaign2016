@@ -4,6 +4,26 @@ load('credential.RData')
 
 
 #setup twitter credentials
+
+consumer_key <- "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+consumer_secret <- "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+access_token <- "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+access_secret <- "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+
+# #setup twitter credentials
+#setup_twitter_oauth(consumer_key, consumer_secret,access_token, access_secret)
+
+requestURL <- "https://api.twitter.com/oauth/request_token"
+accessURL <- "https://api.twitter.com/oauth/access_token"
+authURL <- "https://api.twitter.com/oauth/authorize"
+
+my_oauth <- OAuthFactory$new(consumerKey = consumer_key,
+                             consumerSecret = consumer_secret,
+                             requestURL = requestURL,
+                             accessURL = accessURL,
+                             authURL = authURL)
+#twitteR::setup_twitter_oauth(consumer_key, consumer_secret,access_token, access_secret)
+
 setup_twitter_oauth(consumer_key, consumer_secret,access_token, access_secret)
 
 
