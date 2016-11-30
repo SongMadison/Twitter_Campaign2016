@@ -124,9 +124,16 @@ L4 =  Diagonal(n, norm1^(-0.5)) %*% L4
 svd_L4 <- irlba(L4, nv = 50)
 
 
+
+
+
+
 ### Bipartition
 L5 <- A %*% Diagonal(m, deg_col/ count2) # min(count2)>=1000, can be ommitted
-L5 <- Diagonal(n, deg_row^(-0.5))%*%A %*% Diagonal(m, deg_col^(-0.5))           
+deg_row5 <- rowSums(L5)
+deg_col5 <- colSums(L5)
+L5 <- Diagonal(n, (deg_row5+sqrt(mean(deg_row)))^(-0.5))%*%A 
+L5 <- L5%*% Diagonal(m, (deg_col+sqrt(mean(deg_col)))^(-0.5))
 svd_L5 <- irlba(L5, nv = 25)
 
 
@@ -247,7 +254,9 @@ setkey(clustering, screen_names)
 keyfriends_info <- data.table(keyfriends_info)
 setkey(keyfriends_info, screen_name)
 result <- cbind(clustering,keyfriends_info[clustering$screen_name])
-write.csv(result, file ="../data/followers_Network/result_LL3_k10_n.csv")
+result$status.text <- gsub("[\n\t]", " ", result$status.text)
+result$description <- gsub("[\t\n]", " ", x =result$description)
+write.csv(result, file ="../data/followers_Network/clustering_keyfriends_k20.csv", row.names = F)
 
 #   2-dimension visualization:
 set.seed(12)
@@ -317,18 +326,17 @@ clustering <- cbind(as.vector(keyfriends),rep(1:k, each =20),
                   rep(km_row$size, each =20),  as.vector(scores))
 clustering <- data.table(clustering)
 names(clustering) <- c("screen_names","clusters","Sizes","scores")
-setkey(clustering, screen_names)
 keyfriends_info <- data.table(keyfriends_info)
 setkey(keyfriends_info, screen_name)
 result <- cbind(clustering,keyfriends_info[clustering$screen_name])
-write.csv(result, file ="../data/followers_Network/result_L5_k20_n.csv")
+write.csv(result, file ="../data/followers_Network/result_L5_k20_reg.csv")
 
 
  
 #  2-dimension visualization:
 set.seed(12)
 samp1 <- sample(1:nrow(U), 2000)
-pdf("../data/followers_Network/L5_k20_n.pdf")
+pdf("../data/followers_Network/L5_k20_reg.pdf")
 plot(U1[samp1,2],U1[samp1,3], pch =km_row$cluster[samp1],  col = as.factor(km_row$cluster[samp1]))
 legend("topright", legend = paste0(1:k,"-",km_row$size), pch=1:k, col =as.factor(1:k) )
 dev.off()

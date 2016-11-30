@@ -4,13 +4,7 @@ load('credential.RData')
 
 
 library(dplyr)
-library('RSQLite')
-if (!require('data.table')){
-  install.packages("data.table")
-  library(data.table)
-}else{
-  library(data.table)
-}
+library(RSQLite)
 library(twitteR)
 
 

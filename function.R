@@ -19,7 +19,12 @@ myToJSON <- function(data.json){
   
   validateIds <- unlist(lapply(data.json, function(x) validate(x)))
   a <- table(validateIds) ##FALSE  TRUE :12 126686 
-  message(names(a)[1]," : ", a[1], ", ", names(a)[2]," : ", a[2])
+  nitem = length(validateIds)
+  if (nitem >0){
+    message(names(a)[1]," : ", a[1], ", ", names(a)[2]," : ", a[2])
+  }else{
+    message("there is 0 observation")
+  }
   data.json <- data.json[which(validateIds == TRUE)] 
   return (sprintf("[%s]", paste(data.json, collapse = ',')))
 }
@@ -140,3 +145,54 @@ flattenMatrix <- function(adjM){
 }
 
 
+removeMostPunctuation<-
+  function (x, preserve_intra_word_dashes = FALSE) 
+  { ## keep # and @
+    rmpunct <- function(x) {
+      x <- gsub("@", "\001", x)
+      x <- gsub("#", "\002", x)
+      x <- gsub("[[:punct:]]+", "", x)
+      x <- gsub("\001", "@", x, fixed = TRUE)
+      x <- gsub("\002", "#", x, fixed = TRUE)
+      return (x)
+    }
+    if (preserve_intra_word_dashes) { 
+      x <- gsub("(\\w)-(\\w)", "\\1\003\\2", x)
+      x <- rmpunct(x)
+      gsub("\003", "-", x, fixed = TRUE)
+    } else {
+      rmpunct(x)
+    }
+  }
+
+removeMostNumbers <- function(x){
+  gsub(' \\d+ ', " ", x)
+} 
+
+
+
+removeplural_past<- function(tdm, terms){
+  
+  
+  # remove 's' 
+  # for word ends with 's', whether the word without 's' is in terms. 
+  # like designs is in, check the posiition of design, all the locations of design alike are returned
+  # some are NA, means like "boss" exists, but "bos" not.
+  idx <- match( gsub(pattern = '(.*)s$', replacement = '\\1', 
+                     x= terms[grep('s$',terms)]), terms)
+  idx1 <- match(paste0(terms[idx[!is.na(idx)]],'s'), terms)    # location of plural terms
+  idx2 <- match(terms[idx[!is.na(idx)]], terms)   #location of single terms with out s
+  tdm[idx2,] <- tdm[idx1,]+tdm[idx2,]
+  terms <- terms[-idx1];  tdm<- tdm[-idx1,]; #update terms, tdm
+  
+  # remvoe 'ed'
+  idx <- match( gsub(pattern = '(.*)ed$', replacement = '\\1', x= terms[grep('ed$',terms)]), terms)
+  idx1 <- match(paste0(terms[idx[!is.na(idx)]],'ed'),terms)
+  idx2 <- match(terms[idx[!is.na(idx)]], terms)
+  tdm[idx2,] <- tdm[idx1,]+tdm[idx2,]
+  terms <- terms[-idx1];  tdm<- tdm[-idx1,]; #update terms, tdm
+  
+  print (sprintf( "after combining 's','ed' cleaning: %s words remains in %s docuemnts",
+                  dim(tdm)[1], dim(tdm)[2], '\n') )
+  
+}
