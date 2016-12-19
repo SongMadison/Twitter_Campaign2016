@@ -196,3 +196,170 @@ removeplural_past<- function(tdm, terms){
                   dim(tdm)[1], dim(tdm)[2], '\n') )
   
 }
+
+
+
+VI <- function(confMatrix){
+  n <- sum(confMatrix)
+  P <- rowSums(confMatrix)/n;  Q <- colSums(confMatrix)/n
+  s1 = 0 
+  confMatrix <- confMatrix/n
+  for (i in 1:length(P)){
+    if (P[i] == 0) next
+    s1 = s1 - P[i]*log(P[i])
+  }
+  s2 =0
+  for (i in 1:length(Q)){
+    if (Q[i] == 0) next
+    s2 = s2 - Q[i]*log(Q[i])
+  }
+  I = 0
+  for (i in 1:length(P)){
+    for (j in 1:length(Q[i])){
+      if (confMatrix[i,j] == 0) next # this will also skip the case P[i], Q[j] ==0
+      I = I+  confMatrix[i,j] * log(confMatrix[i,j]/P[i]/Q[j])
+  }}
+  return  (1 - 0.5* I/s1- 0.5* I/s2)
+}
+
+NMI <- function(confMatrix){
+  n <- sum(confMatrix)
+  P <- rowSums(confMatrix)/n;  Q <- colSums(confMatrix)/n
+  s1 = 0 
+  confMatrix <- confMatrix/n
+  for (i in 1:length(P)){
+    if (P[i] == 0) next
+    s1 = s1 - P[i]*log(P[i])
+  }
+  s2 =0
+  for (i in 1:length(Q)){
+    if (Q[i] == 0) next
+    s2 = s2 - Q[i]*log(Q[i])
+  }
+  I = 0
+  for (i in 1:length(P)){
+    for (j in 1:length(Q[i])){
+      if (confMatrix[i,j] == 0) next # this will also skip the case P[i], Q[j] ==0
+      I = I+  confMatrix[i,j] * log(confMatrix[i,j]/P[i]/Q[j])
+    }}
+  return  (I/sqrt(s1*s2))
+}
+
+## missing then filled with 'NA', put in the function.R
+# unlistWithNA <- function(field) 
+
+
+unlistWithNA <- function(field) {
+  notnulls <- unlist(lapply(field, function(x)
+    ! is.null(x)))
+  vect <- rep(NA, length(field))
+  vect[notnulls] <- unlist(field)
+  return (vect)
+}
+
+#selected certain variables, put in the function.R
+#simplify <- function(dat) , 
+#dat is output of  #jsonlite::fromJSON(, simplifyDataFrame = T)
+simplifyTwitterDF <- function(dat) {
+  created_at = unlistWithNA(dat$created_at)
+  id_str = unlistWithNA(dat$id_str)
+  text = unlistWithNA(dat$text)
+  truncated = unlistWithNA(dat$truncated)
+  #entities = unlist(dat$entities),
+  source = unlistWithNA(dat$source)
+  in_reply_to_status_id_str = unlistWithNA(dat$in_reply_to_status_id_str)
+  in_reply_to_user_id_str = unlistWithNA(dat$in_reply_to_user_id_str)
+  in_reply_to_screen_name = unlistWithNA(dat$in_reply_to_screen_name)
+  if (is.null(dat$user)) {
+    user_id_str = rep(NA, nrow(dat))
+    user_screen_name = rep(NA, nrow(dat))
+  } else{
+    user_id_str = unlistWithNA(dat$user$id_str)
+    user_screen_name = unlistWithNA(dat$user$screen_name)
+  }
+  
+  if (is.null(dat$place) ||
+      is.null(names(dat$place))) {
+    # no place obj
+    place_name = rep(NA, nrow(dat))
+    place_country = rep(NA, nrow(dat))
+  } else{
+    place_name = unlistWithNA(dat$place$name)
+    place_country = unlistWithNA(dat$place$country)
+  }
+  is_quote_status = unlistWithNA(dat$is_quote_status)
+  retweet_count = unlistWithNA(dat$retweet_count)
+  favorite_count = unlistWithNA(dat$favorite_count)
+  favorited = unlistWithNA(dat$favorited)
+  retweeted = unlistWithNA(dat$retweeted)
+  lang = unlistWithNA(dat$lang)
+  
+  lst <-
+    list(
+      created_at = created_at,
+      id_str = id_str,
+      text = text,
+      truncated = truncated,
+      source = source,
+      in_reply_to_status_id_str = in_reply_to_status_id_str,
+      in_reply_to_user_id_str = in_reply_to_user_id_str,
+      in_reply_to_screen_name = in_reply_to_screen_name,
+      user_id_str = user_id_str,
+      user_screen_name = user_screen_name,
+      place_name = place_name,
+      place_country,
+      is_quote_status = is_quote_status,
+      retweet_count = retweet_count,
+      favorite_count = favorite_count,
+      favorited = favorited,
+      retweeted = retweeted,
+      lang = lang
+    )
+  return(data.frame(lst, stringsAsFactors = F))
+}
+
+
+DisimA <- function(A, k, taus = c(0,0), rowNorm = T, simultaneous =T, verbose = T, seed = NULL){
+  if(!is.null(seed)) {set.seed(seed)
+    }else {set.seed(123)}
+  nr <- dim(A)[1]; nc <- dim(A)[2]
+  labs = list(); labs$row <- rep(NA, nr); labs$col <- rep(NA, nc);
+  labs$U<- matrix(0, nr, k); labs$V <- matrix(0, nc, k)
+  
+  Dr <- rowSums(A); Dc <- colSums(A)
+  goodr <- which(Dr != 0); #out degree is zero
+  goodc <- which(Dc != 0);
+
+  A <- A[goodr, goodc]
+  nr <- dim(A)[1]; nc <- dim(A)[2]
+  Dr <- rowSums(A); Dc <- colSums(A)
+  tau1 = taus[1]; tau2 <- taus[2]
+  L <- Diagonal(nr, (Dr+tau1)^(-1/2)) %*% A %*% Diagonal(nc, (Dc +tau2)^(-1/2))
+  if (verbose){
+    svd <- irlba::irlba(L, nv = max(40,k+2))
+    plot(svd$d, main ="scree plot"); abline(v = k, col= "red", lty=2)
+  }else{
+    svd <- irlba::irlba(L, nv = k+2)
+  } 
+  U <- svd$u[,1:k];   labs$U[goodr,] = U
+  V <- svd$v[,1:k];   labs$V[goodc,] = V
+  if (rowNorm) {norm1 <- rowSums(U*U); norm1 <- sqrt(norm1+1e-6); U <- Diagonal(nr, norm1^(-1)) %*% U}
+  if (rowNorm) {norm2 <- rowSums(V*V); norm2 <- sqrt(norm2+1e-6); V <- Diagonal(nc, norm2^(-1)) %*% V}
+  if (simultaneous){ 
+    X <- rbind(U, V);  km <- kmeans(X, k , iter.max = 30, nstart = 30);
+    labs$row[goodr] <- km$cluster[1:nr]; labs$col[goodc] <- km$cluster[(nr+1):(nr+nc)]
+  }else{
+    km1 <- kmeans(U, k , iter.max = 30, nstart = 30); km2 <- kmeans(V, k , iter.max = 30, nstart = 30)
+    labs$row[goodr] <- km1$cluster; labs$column[goodc] <- km2$cluster
+  }
+  labs
+  return(labs)
+}
+membershipM <- function(labs){
+  k <- max(labs,na.rm = T); m <- length(labs)
+  Z <- matrix(0, m, k)
+  for(i in 1:k){
+    Z[which(labs == i), i] <- 1 
+  }
+  return(Z)
+}

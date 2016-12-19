@@ -4,26 +4,25 @@
 
 library(smappR)
 
-myfollowers <- getFollowers("DrDavidDuke", oauth_folder = "./credentials/credential_mixed3")
-
+myfollowers <- getFollowers("DrDavidDuke", 
+                    oauth_folder = "./credentials/credential_mixed3")
 
 #trump_followers <- getFollowers("realDonaldTrump", oauth_folder = "~/Dropbox/credentials", sleep = 30)
-
-followers_info <- getUsersBatch(ids = myfollowers, 
-              oauth_folder = "./credentials/credential_mixed3", 
-              include_entities = TRUE, verbose = TRUE, 
-              output = "../data/davidduke/davidduke.json")
-
-
-
-
+if (! file.exists("../data/davidduke/davidduke.json")){
+  
+  followers_info <- getUsersBatch(ids = myfollowers, 
+                                  oauth_folder = "./credentials/credential_mixed3", 
+                                  include_entities = TRUE, verbose = TRUE, 
+                                  output = "../data/davidduke/davidduke.json")
+  
+}
 
 # download the top 200 twitters in the timeline for a set of users with screen_name in name1
 #dir.create("../data/davidduke")
-output_folder <- "../data/davidduke/"
+output_folder <- "../data/davidduke/jsons"
 name1 <- followers_info$screen_name
 #n = length(name1)
-for (i in 1 : length(name1)){
+for (i in 24682 : length(name1)){
   #i = 1
   file_name <- paste0(output_folder, name1[i],".json")
   tryCatch(
@@ -41,13 +40,13 @@ for (i in 1 : length(name1)){
 
 # for each user's screen_name in a set, download the friends list and write them as a string vectors into a file
 
-
+library(smappR)
 SN1 <- name1  ## a vector with screen_names of users
 
 my_oauth_folder <- "./credentials/credential_mixed2"
 output <- "../data/davidduke/friends_list.txt"
 conn = file(output, 'w') 
-for ( i in 1:length(SN1)){  
+for ( i in 20661:length(SN1)){  
   #i =1 #sn ="DivinemLee"  #1300 friends
   sn = SN1[i]
   friendIDs <- tryCatch(

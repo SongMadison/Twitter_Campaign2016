@@ -16,25 +16,28 @@ library(smappR)
 # 
 
 
+## I updated the getBatchUsers function in the original package, add a feature to allow randomness
+# library(devtools)
+# build("smappR",path = "./smappR/")
+# install.packages(pkgs = "./smappR/smappR_0.5.tar.gz", repos = NULL, 
+#                  lib = "/afs/cs.wisc.edu/u/s/o/songwang/R/Rlibs/"  )
 
-#.libPaths(c("/afs/cs.wisc.edu/u/s/o/songwang/R/x86_64-pc-linux-gnu-library/3.2",.libPaths()))
+library(smappR, lib.loc = '~/R/Rlibs')
+screenName = "realDonaldTrump"
 
 
+my_oauth_folder <- "./credentials/credential_mixed2"
+#followerIDs <- getFollowers("jure", cursor = -1, oauth_folder = my_oauth_folder,sleep = 10, 
+#                           output ="/p/stat/songwang/trump_followers/ids/jure.txt") #<5000
 
-setwd("~/Stat/Twitter_Campaign2016/code/")
-screenName = "realDonalTrump"
 
-
-my_oauth_folder <- "./credentials/credential_mixed2/"
-#load(paste0(my_oauth_folder,"/my_oauth"))
-
-swllowers <- getFollowers("swang282", oauth_folder = my_oauth_folder,sleep = 30) #<5000
-followerIDs <- getFollowers(screenName, cursor = -1, oauth_folder = my_oauth_folder, sleep = 60) #mutiple 5k
-save(followerIDs, file = paste0("../data/followers_info/ids/", 
-                                 screenName,"_id_only.RData"))
+followerIDs <- getFollowers(screenName, cursor = -1, oauth_folder = my_oauth_folder, sleep = 10,
+                            output =  paste0("/p/stat/songwang/trump_followers/ids/", 
+                                   screenName,"_id_only.txt")) #mutiple 5k
 
 followers <- getUsersBatch(ids = followerIDs, oauth_folder = my_oauth_folder, 
               include_entities = TRUE, verbose = TRUE, 
-              output = paste0("../data/followers_info/jsons/",screenName,"_screen-names.json"))
+              output = paste0("/p/stat/songwang/trump_followers/jsons/",
+                              screenName,"_screen-names.json"))
 
 

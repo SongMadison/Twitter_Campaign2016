@@ -1,22 +1,18 @@
-rm(list = ls())
 
-library(data.table)
-library(Matrix)
-library(tm)
-library(rARPACK)  ## fast eigenvector computation
-library(irlba)   ## fast svd computation
+rm(list =ls() )
+source('Head_file.R') #import libraries, self-defined functions
 
 
 load("../data/followers_Network/data.RData")
 ## containing A 
 
-name1 <- rownames(A)
-name2 <- colnames(A)
-sn_description <- fread("../data/followers_info/jsons/sn_descriptions.csv",
-                        colClasses =c("integer","character","character"))
-
-setkey(sn_description, screen_name)
-followers <- sn_description[name1]
+name1 <- rownames(A) #75938
+# name2 <- colnames(A)
+# sn_description <- fread("../data/followers_info/jsons/sn_descriptions.csv",
+#                         colClasses =c("integer","character","character"))
+# 
+# setkey(sn_description, screen_name)
+# followers <- sn_description[name1]
 
 # the code run are Nove 18, obtained 75416x14 data.frame. 
 # # note total name1 has 75938
@@ -29,28 +25,45 @@ followers <- sn_description[name1]
 
 followers_info <- fread("../data/followers_Network/followers_info_status.csv",
                         stringsAsFactors = F)
+#some user are not available,  75416    14
 
 
 ## top200 twitters from each follower
-output_folder <- "../data/followers_Network/followers_timeline/"
-n_Error = 0
+output_folder <- "../data/followers_Network/followers_timeline11/"
+Err_users <- NULL
 n = length(name1)
-for (i in 1: 40548){
+for (i in 45001:n){
   #i = 1
   file_name <- paste0(output_folder, name1[i],".json")
   tryCatch(
-    getTimeline(filename = file_name,n =200, screen_name = name1[i],
-                oauth_folder = "./credentials/credential_mixed3",
+    getTimeline(filename = file_name, n =1200, screen_name = name1[i],
+                oauth_folder = "./credentials/credential_mixed1",
                 sleep = 0.5, verbose = TRUE), 
     error = function(e){
-#       print(n_Error)
-#       eval.parent(substitute(n_Error <- n_Error +1))
+      Err_users <- c(Err_users, name1[i])
       message( paste(name1[i], "error occurred"))
-      write(name1[i], file = conn, append = TRUE )    
-    }) 
+    }
+  )
+  Err_users <- cbind(Err_users,name1[i])
   print(paste("XXXXXX -- i = ", i ,'\n'))   
 }
 
+
+for (i in 1:45000){
+  #i = 1
+  file_name <- paste0(output_folder, name1[i],".json")
+  tryCatch(
+    getTimeline(filename = file_name, n =1200, screen_name = name1[i],
+                oauth_folder = "./credentials/credential_mixed",
+                sleep = 0.5, verbose = TRUE), 
+    error = function(e){
+      Err_users <- c(Err_users, name1[i])
+      message( paste(name1[i], "error occurred"))
+    }
+  )
+  Err_users <- cbind(Err_users,name1[i])
+  print(paste("XXXXXX -- i = ", i ,'\n'))   
+}
 
 
 
@@ -81,8 +94,8 @@ print ( sprintf( "after initial cleaning: %s words remains in %s docuemnts",
                  dim(tdm)[1], dim(tdm)[2], '\n') )  
 
 
-B = spMatrix(i = tdm$i, j = tdm$j, x = tdm$v, nrow = tdm$nrow, ncol  = tdm$ncol)         # frequency count
-rownames(B)  = tdm$dimnames$Terms
+A = spMatrix(i = tdm$i, j = tdm$j, x = tdm$v, nrow = tdm$nrow, ncol  = tdm$ncol)         # frequency count
+rownames(A)  = tdm$dimnames$Terms
 
 # remove 's' 
 # for word ends with 's', whether the word without 's' is in terms. 
@@ -92,32 +105,32 @@ idx <- match( gsub(pattern = '(.*)s$', replacement = '\\1',
                    x= terms[grep('s$',terms)]), terms)
 idx1 <- match(paste0(terms[idx[!is.na(idx)]],'s'), terms)    # location of plural terms
 idx2 <- match(terms[idx[!is.na(idx)]], terms)   #location of single terms with out s
-B[idx2,] <- B[idx1,]+B[idx2,]
-terms <- terms[-idx1];  B<- B[terms,]; #update terms, tdm
+A[idx2,] <- A[idx1,]+A[idx2,]
+terms <- terms[-idx1];  A<- A[terms,]; #update terms, tdm
 
 # remvoe 'ed'
 idx <- match( gsub(pattern = '(.*)ed$', replacement = '\\1', x= terms[grep('ed$',terms)]), terms)
 idx1 <- match(paste0(terms[idx[!is.na(idx)]],'ed'),terms)
 idx2 <- match(terms[idx[!is.na(idx)]], terms)
-B[idx2,] <- B[idx1,]+B[idx2,]
-terms <- terms[-idx1];  B<- B[terms,]; #update terms, tdm
+A[idx2,] <- A[idx1,]+A[idx2,]
+terms <- terms[-idx1];  A<- A[terms,]; #update terms, tdm
 print (sprintf( "after combining 's','ed' cleaning: %s words remains in %s docuemnts",
-                dim(B)[1], dim(B)[2], '\n') )
+                dim(A)[1], dim(A)[2], '\n') )
 
 
 ## keep words that appears in less than 10 document
-rownames(B)  = terms
-kw = (B>0)+0  # converte counts in term document matrix to  {0,1}
-B1 = B[rowSums(kw)>=5,]   
-B1 <- t(B1)
+rownames(A)  = terms
+kw = (A>0)+0  # converte counts in term document matrix to  {0,1}
+A1 = A[rowSums(kw)>=5,]   
+A1 <- t(A1)
 
 load('data4.RData') # vlustering results
 Z <- matrix(0, nrow(A),k)
 for(i in 1:k){
   Z[which(km_row$cluster == i), i] <- 1  
 }
-words_by_cluster <- t(Z)%*%B1
-terms <- colnames(B1)
+words_by_cluster <- t(Z)%*%A1
+terms <- colnames(A1)
 library(wordcloud)
 i = 3
 wordcloud(words = terms, freq = words_by_cluster[i,], 
@@ -138,8 +151,8 @@ registerDoParallel(cl)
 getDoParWorkers()
 
 
-source('function.R')
-library(jsonlite)
+
+
 path = "../data/followers_Network/followers_timeline2"
 files <- list.files(path,full.names = T)
 
@@ -223,28 +236,31 @@ data <- data.frame(list(sns =sns, text = text), stringsAsFactors = F)
 ## combinded two such sets, remove the duplicates
 #write.csv(dat, file ="../data/followers_Network/followers_sns_text_combined.csv", row.names = F )
 
-#use the text to explain whether the results  make senses or not
-dat <- read.csv("../data/followers_Network/followers_timeline_top200.csv", stringsAsFactors = F)
+
+
+
+#########################################################################################
+# text to explain whether the results  make senses or not
+#########################################################################################
 
 #break the up file
-ss = 2000
-nbreaks = ceiling(dim(dat)[1]/ss)
-for (i in 1:nbreaks){
-   #i =1
-   idx = ((i-1)*ss+1):min(ss*i,dim(dat)[1])
-   dat1 <- dat[idx,]
-   if (i <10) {
-     i_str = paste0('0',i)
-   }else{
-     i_str = i
-   }
-   filename <- paste0("../data/followers_Network/followers_timeline_combined/",i_str,".csv")
-   write.csv(dat1, file = filename, row.names = F)
-}                 
+# ss = 2000
+# nbreaks = ceiling(dim(dat)[1]/ss)
+# for (i in 1:nbreaks){
+#    #i =1
+#    idx = ((i-1)*ss+1):min(ss*i,dim(dat)[1])
+#    dat1 <- dat[idx,]
+#    if (i <10) {
+#      i_str = paste0('0',i)
+#    }else{
+#      i_str = i
+#    }
+#    filename <- paste0("../data/followers_Network/followers_timeline_combined/",i_str,".csv")
+#    write.csv(dat1, file = filename, row.names = F)
+# }                 
 
-
-
-
+#dat <- read.csv("../data/followers_Network/followers_timeline_top200_1129/01.csv", stringsAsFactors = F)
+dat <- read.csv("../data/followers_Network/followers_timeline_top200.csv", stringsAsFactors = F)
 
 
 
@@ -260,47 +276,285 @@ ctrl <- list(#removePunctuation = list(preserve_intra_word_dashes = TRUE),
   #, stemming = TRUE                    # remove prefix or postfix
   , bounds = list(global= c(20,Inf))   # remove low-frequency/high frequency words
   , wordLengths = c(4, 25) # remove short words like 'a' 
-  #, weighting = function(x) weightSMART(x, spec = "nnn")
+  #, weighting = function(x) weightSMART(x, spec = "ltc")
 )
 
 
-tdm <- TermDocumentMatrix(vc, control =  ctrl)  ## term - ducoment matrix
-terms <- tdm$dimnames$Terms
-print ( sprintf( "after initial cleaning: %s words remains in %s docuemnts",
-                 dim(tdm)[1], dim(tdm)[2], '\n') )  
+tdm <- TermDocumentMatrix(vc, control =  ctrl)  # take about 30 min
 
-B = spMatrix(i = tdm$i, j = tdm$j, x = tdm$v, nrow = tdm$nrow, ncol  = tdm$ncol)         
-# frequency count
-rownames(B)  = tdm$dimnames$Terms
-colnames(B) = dat$user_screenName
+## remove some words and documents 
+idx1 <- grep(pattern = "https|http",tdm$dimnames$Terms)
+tdm <- tdm [-idx1, ]
+A1 <- spMatrix(i = tdm$i, j = tdm$j, x = tdm$v, nrow = tdm$nrow, ncol  = tdm$ncol) 
+idx2 <- which(colSums(A1>0)<5 )
+tdm <- tdm[,-idx2]
+names_documents <- dat$user_screenName[-idx2]
 
-tfidf <- weightTfIdf(tdm, normalize = TRUE) #some empty documents
-B1 <- spMatrix(i = tfidf$i, j = tfidf$j, x = tfidf$v, nrow = tfidf$nrow, ncol  = tfidf$ncol)         # frequency count
-rownames(B1)  = tfidf$dimnames$Terms
-colnames(tfidf) = dat$user_screenName
-## remove those empty documents <=2
-col_sum <- colSums(B)
-idx <- which(col_sum <= 5)  ; length(idx) #[1] 0: 2624, total 4371
-B <- B[,-idx]
-B1 <- B1[,-idx]
-dim(B)
+#tfidf <- weightTfIdf(tdm, normalize = TRUE) #some empty documents
+tfidf <- weightSMART(tdm, spec= 'ltu',   control= list( pivot = 10, slope = 0.5)) #use when calculate pivoted normalization
+  
+# frequency vary too much, taking log, invert docoment, not normalized
 
-clustering <- read.csv("../data/followers_Network/results_20_clusters.csv", 
-                       stringsAsFactors = F)
+print ( sprintf( "after cleaning: %s words remains in %s docuemnts",
+                 dim(tdm)[1], dim(tdm)[2], '\n' ) )  
+
+
+
+A1 <- spMatrix(i = tdm$i, j = tdm$j, x = tdm$v, nrow = tdm$nrow, ncol  = tdm$ncol) 
+A2 <- spMatrix(i = tfidf$i, j = tfidf$j, x = tfidf$v, nrow = tfidf$nrow, ncol  = tfidf$ncol) 
+
+rownames(A1)  = tdm$dimnames$Terms; colnames(A1) = names_documents
+rownames(A2)  = tfidf$dimnames$Terms ; colnames(A2) = names_documents
+stopifnot(dim(A1)==dim(A2))
+save(A1,A2, file ="clean_text.RData")
+
+deg1 <- rowSums(A1); deg2 <- colSums(A1)
+d1 <- rowSums(A2); d2 <- colSums(A2)
+high2 <- cbind(colnames(A2)[order(-d2)[1:50]],d2[order(-d2)[1:50]]) # high degree documents
+hist(d2, breaks =100)
+
+
+
+
+
+
+### A1 is terms-document, A2 is tf-idf of A1, normalized
+##../data/followers_Network/results_20_clusters_simplified.csv
+
+#A <- A2
+A <- A1
+A@x <- log(1+A1@x)
+
+
+
+
+# based on the original clusters discovered by following relationship
+clustering <- read.csv(
+   "./1209/following/k50/sn_cluster_simplified.csv", stringsAsFactors = F)
 k = max(clustering$cluster)
-Z <- matrix(0, nrow(clustering), k)
+Z1 <- matrix(0, nrow(clustering), k)
 for(i in  1:k){
-  Z[which(clustering$cluster == i), i] <-1
+  Z1[which(clustering$cluster == i), i] <-1
 }
-x <- match(colnames(B), clustering$sceenNames)
-Z1 <- Z[x[which(!is.na(x))], ]
+x <- match(colnames(A), clustering$screenNames)
+Z1 <- Z1[x[which(!is.na(x))], ]
 csize <- colSums(Z1)
-Z1 <- Z1 %*% Diagonal(k,csize^(-1))
-totalwords <- t(Z1)%*%t(B1)
-diffwords <- scale(totalwords,center = T, scale = F)
-topwords<- matrix("", 20 ,k)
+NZ1 <- Z1 %*% Diagonal(k,csize^(-1))  # normalized Z1
+cluster_mean <- t(NZ1)%*%t(A)
+grand_mean <- rowMeans(A)
+topwords<- matrix("", 40 ,k)
+terms <- rownames(A)
 for(i in 1:k){
-  topwords[,i] <- terms[order(-diffwords[i,])[1:20]]
+  diff <- sqrt(cluster_mean[i,]) - sqrt(grand_mean)
+  topwords[,i] <- terms[order(-diff)[1:40]]
 }
 topwords 
+#write.csv(topwords, file ="../report/2016-12-01/top40_tweets.csv", row.names = F)
+write.csv(topwords, file ="./1209/L2/k50/A1_keywords_50.csv", row.names = F)
+
+
+
+
+
+### di-sim algorithm
+
+n <- dim(A)[1]  
+m <- dim(A)[2]
+
+
+## L =
+D1 <- rowSums(A); summary(D1) # >= 20
+D2 <- colSums(A); summary(D2) # >= 5
+tau1 <- mean(D1); tau2 <- mean(D2)
+L <- Diagonal(n, (D1+tau1)^(-1/2)) %*% A %*%Diagonal(m, (D2+tau2)^(-1/2))
+
+#L = A
+irlba_L <- irlba(L, nv =52)
+d <- irlba_L$d
+U <- irlba_L$u %*% Diagonal(length(d), d^(1/2))
+V <- irlba_L$v %*% Diagonal(length(d), d^(1/2))
+
+k = 50
+
+l1 <- rowSums(U[,1:k]^2); l1 <- sqrt(l1+1e-6); U1 <- Diagonal(n, l1^(-1))%*%U[,1:k]
+r1 <- rowSums(V[,1:k]^2); r1 <- sqrt(r1+1e-6); V1 <- Diagonal(m, r1^(-1))%*%V[,1:k]
+X1 <- rbind(U1, V1)
+set.seed(100)  # don't change!!!!!
+km1 <- kmeans(X1, k, nstart = 50, iter.max = 30)
+
+Z <- matrix(0, n+m, k)
+for (i in 1:k){
+  Z[km1$cluster == i, i] <- 1
+}
+Y <- Z[(n+1):(n+m),]
+Z <- Z[1:n, ]
+B <- t(Z) %*% L %*% Y
+DB1 <- rowSums(B); DB2 <- colSums(B);WB <- Diagonal(k, DB1^(-1))%*%B %*% Diagonal(k, DB2^(-1))
+# library(fields)
+# sum(WB)/sum(diag(WB)); image.plot(1:k, 1:k, as.matrix(sqrt(WB)))
+# sum(B)/sum(diag(B)) ; image.plot(1:k, 1:k, as.matrix(sqrt(B)))
+pdf("./1209/L2/A1_blockB_bip.pdf", height = 7, width = 8)
+ggplot(data = melt(as.matrix(sqrt(WB))), aes(x=Var1, y =Var2, fill = value))+
+  geom_tile() + labs(title= expression(sqrt(WB)))+xlab("row")+ylab("col") 
+ggplot(data = melt(as.matrix(sqrt(B))), aes(x=Var1, y =Var2, fill = value))+
+  geom_tile() + labs(title= expression(sqrt(B)))+xlab("row")+ylab("col") 
+dev.off()
+colSums(Z);colSums(Y)
+
+
+confMatrix <- t(Z1) %*% Y
+pdf(file = "./1209/L2/k50/A1_confMat_50_50.pdf", onefile = T, width = 8, height = 7)
+library(ggplot2)
+confMatrix1 <- Diagonal(dim(Z1)[2], rowSums(confMatrix)^(-1))%*% confMatrix;
+ggplot(melt(as.matrix(confMatrix1)), aes(x=as.factor(Var1), y= as.factor(Var2), fill=value)) + 
+   geom_tile()+ labs(title = "row sum =1") + xlab("following cluster") + ylab("text cluster")
+confMatrix2 <- confMatrix %*% Diagonal(dim(Y)[2], colSums(confMatrix)^(-1));
+ggplot(melt(as.matrix(confMatrix2)),aes(x=as.factor(Var1), y= as.factor(Var2), fill=value)) + 
+  geom_tile()+ labs(title = "colnum sum =1") + xlab("following cluster") + ylab("text cluster")
+confMatrix3 <- Diagonal(dim(Z1)[2], rowSums(confMatrix)^(-1))%*% confMatrix %*% Diagonal(dim(Y)[2], colSums(confMatrix)^(-1))
+ggplot(melt(as.matrix(confMatrix3)),aes(x=as.factor(Var1), y= as.factor(Var2), fill=value)) + 
+  geom_tile()+ labs(title = "normalized by row and col") + xlab("following cluster") + ylab("text cluster") #+scale_fill_gradient(low="green", high="red")
+dev.off()
+NMI(confMatrix)
+
+
+
+# input: Y
+sizes <- colSums(Y)
+documents<- A %*% Y
+pdf(file = "./1209/L2/A1_frequent_words.pdf", onefile = T, width = 8, height = 9)
+#words in that collection
+for (i in 1:k){
+wordcloud(words = rownames(documents), freq = documents[,i], 
+          min.freq = documents[order(-documents[,i])[50],i], 
+          rot.per = 0, random.order = F, scale = c(2,0.2))
+title(paste0("cluster of size: ", sizes[i]))
+}
+dev.off()
+
+#distinctive words
+document_mean <- A %*% Y%*% Diagonal(k, sizes^(-1))
+selected_words <- matrix("", 40, k)
+row_mean <- rowMeans(A)
+for (i in 1:k){
+  # i =2
+  diff <- sqrt(document_mean[,i]) - sqrt(row_mean) # vector
+  selected_words[,i] <- rownames(document_mean)[order(-diff)[1:40]]
+}
+write.csv(selected_words, file = "./1209/L2/A1_distictive_words.csv")
+
+
+
+##use assoicated words, words are disjoined
+selected_words2 <- matrix("", 40, k)
+weight <-  colSums(A)
+terms <- rownames(A)
+for (i in 1:k){
+  # i =2
+  idx <- which(Z[,i] ==1)
+  tmp_w <- weight[ idx ]
+  tmp_t <- terms[idx]
+  selected_words2[,i] <- tmp_t[order(-tmp_w)[1:40]]
+}
+write.csv(selected_words, file = "./1209/L2/A1_distictive_words.csv")
+
+
+
+
+#clustering based on similarity separately, clustering the columns and rows separately
+k = 50
+
+D1 <- rowSums(A*A); summary(D1) # >= 20
+D2 <- colSums(A*A); summary(D2) # >= 5
+n <- dim(A)[1]
+m <- dim(A)[2]
+tau1 <- mean(D1); tau2 <- mean(D2)
+L1 <- Diagonal(n, (D1+tau1)^(-1/2)) %*% A  ## L^T L is the similarity among documents
+L2 <- A %*%Diagonal(m, (D2+tau2)^(-1/2))  ## L^T L is the similarity among documents
+irlba_L1 <- irlba(L1, nv =50)
+U <- irlba_L$u
+
+irlba_L2 <- irlba(L2, nv =50)
+V <- irlba_L2$v
+
+
+k =50
+l1 <- rowSums(U[,1:k]^2); l1 <- sqrt(l1+1e-6); U1 <- Diagonal(n, l1^(-1))%*%U[,1:k]
+r1 <- rowSums(V[,1:k]^2); r1 <- sqrt(r1+1e-6); V1 <- Diagonal(m, r1^(-1))%*%V[,1:k]
+set.seed(100)
+km1 <- kmeans(U, k, nstart = 100, iter.max = 30)
+km2 <- kmeans(V, k, nstart = 100, iter.max = 30)
+
+Z <- matrix(0, n, k)
+for (i in 1:k){
+  Z[km1$cluster == i, i] <- 1
+}
+Y <- matrix(0, m, k)
+for (i in 1:k){
+  Y[km2$cluster == i, i] <- 1
+}
+B <- t(Z) %*% A2 %*% Y
+DB1 <- rowSums(B); DB2 <- colSums(B); WB <- Diagonal(k, DB1^(-1))%*% B %*% Diagonal(k, DB2^(-1))
+# library(fields)
+# sum(WB)/sum(diag(WB)); image.plot(1:k, 1:k, as.matrix(sqrt(WB)))
+# sum(B)/sum(diag(B)) ; image.plot(1:k, 1:k, as.matrix(sqrt(B)))
+pdf("./1209/L2_sep/blockB_bip.pdf", height = 7, width = 8)
+ggplot(data = melt(as.matrix(sqrt(WB))), aes(x=Var1, y =Var2, fill = value))+
+  geom_tile() + labs(title= expression(sqrt(WB)))+xlab("row")+ylab("col") 
+ggplot(data = melt(as.matrix(sqrt(B))), aes(x=Var1, y =Var2, fill = value))+
+  geom_tile() + labs(title= expression(sqrt(B)))+xlab("row")+ylab("col") 
+dev.off()
+colSums(Z);colSums(Y)
+
+
+confMatrix <- t(Z1) %*% Y
+pdf(file = "./1209/L2_sep/confMat.pdf", onefile = T, width = 8, height = 7)
+library(ggplot2)
+confMatrix1 <- Diagonal(dim(Z1)[2], rowSums(confMatrix)^(-1))%*% confMatrix;
+ggplot(melt(as.matrix(confMatrix1)), aes(x=Var1, y= Var2, fill=value)) + 
+  geom_tile()+ labs(title = "confMat1") + xlab("row") + ylab("col")
+confMatrix2 <- confMatrix %*% Diagonal(dim(Y)[2], colSums(confMatrix)^(-1));
+ggplot(melt(as.matrix(confMatrix2)),aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile()+ labs(title = "confMat2") + xlab("row") + ylab("col")
+confMatrix3 <- Diagonal(dim(Z1)[2], rowSums(confMatrix)^(-1))%*% confMatrix %*% Diagonal(dim(Y)[2], colSums(confMatrix)^(-1))
+ggplot(melt(as.matrix(confMatrix3)),aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile()+ labs(title = "confMat3") + xlab("row") + ylab("col") #+scale_fill_gradient(low="green", high="red")
+dev.off()
+NMI(confMatrix)
+
+
+
+# input: Y
+sizes <- colSums(Y)
+documents<- A %*% Y
+pdf(file = "./1209/L2_sep/frequent_words.pdf", onefile = T, width = 8, height = 9)
+#words in that collection
+for (i in 1:k){
+  wordcloud(words = rownames(documents), freq = documents[,i], 
+            min.freq = documents[order(-documents[,i])[50],i], 
+            rot.per = 0, random.order = F, scale = c(2,0.2))
+  title(paste0("cluster of size: ", sizes[i]))
+}
+dev.off()
+
+#distinctive words
+document_mean <- A %*% Y%*% Diagonal(k, sizes^(-1))
+selected_words <- matrix("", 40, k)
+row_mean <- rowMeans(A)
+for (i in 1:k){
+  # i =2
+  diff <- document_mean[,i] - row_mean # vector
+  selected_words[,i] <- rownames(document_mean)[order(-diff)[1:40]]
+}
+write.csv(selected_words, file = "./1209/L2_sep/distictive_words.csv")
+
+save(list =ls(), file ="./1209/L2_sep/result_A1.RData")
+
+
+
+
+
+
+
+
 

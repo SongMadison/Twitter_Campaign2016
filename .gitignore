@@ -40,4 +40,5 @@ twitteR/
 *.RDataTmp
 *.Rout
 
-
+*.log
+*.pdf

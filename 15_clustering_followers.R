@@ -258,6 +258,7 @@ result$status.text <- gsub("[\n\t]", " ", result$status.text)
 result$description <- gsub("[\t\n]", " ", x =result$description)
 write.csv(result, file ="../data/followers_Network/clustering_keyfriends_k20.csv", row.names = F)
 
+
 #   2-dimension visualization:
 set.seed(12)
 samp1 <- sample(1:nrow(U), 2000)
