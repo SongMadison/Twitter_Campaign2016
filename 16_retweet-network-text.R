@@ -1,0 +1,13 @@
+
+
+
+tdmTwitters <- fucntion(textVector){
+  
+  
+}
+
+
+
+
+
+

@@ -81,7 +81,7 @@ text <- removeMostPunctuation(text, preserve_intra_word_dashes = T)
 text <- removeMostNumbers(text)
 vc <- VCorpus( VectorSource(text) ) # just change the vector of strings to corpus
 ctrl <- list(#removePunctuation = list(preserve_intra_word_dashes = TRUE),
-             stopwords = TRUE,
+             sdistinctive_words = TRUE,
              removeNumbers = FALSE
              #, stemming = TRUE                    # remove prefix or postfix
              #, bounds = list(global= c(15,Inf))   # remove low-frequency/high frequency words
@@ -271,7 +271,7 @@ dat$text <- removeMostNumbers(dat$text)
 
 vc <- VCorpus( VectorSource(dat$text) ) # just change the vector of strings to corpus
 ctrl <- list(#removePunctuation = list(preserve_intra_word_dashes = TRUE),
-  stopwords = TRUE,
+  sdistinctive_words = TRUE,
   removeNumbers = FALSE
   #, stemming = TRUE                    # remove prefix or postfix
   , bounds = list(global= c(20,Inf))   # remove low-frequency/high frequency words
@@ -300,7 +300,7 @@ print ( sprintf( "after cleaning: %s words remains in %s docuemnts",
 
 
 
-A1 <- spMatrix(i = tdm$i, j = tdm$j, x = tdm$v, nrow = tdm$nrow, ncol  = tdm$ncol) 
+#A1 <- spMatrix(i = tdm$i, j = tdm$j, x = tdm$v, nrow = tdm$nrow, ncol  = tdm$ncol) 
 A2 <- spMatrix(i = tfidf$i, j = tfidf$j, x = tfidf$v, nrow = tfidf$nrow, ncol  = tfidf$ncol) 
 
 rownames(A1)  = tdm$dimnames$Terms; colnames(A1) = names_documents
@@ -321,9 +321,9 @@ hist(d2, breaks =100)
 ### A1 is terms-document, A2 is tf-idf of A1, normalized
 ##../data/followers_Network/results_20_clusters_simplified.csv
 
-#A <- A2
-A <- A1
-A@x <- log(1+A1@x)
+A <- A2
+#A <- A1 ;
+# A@x <- log(1+A1@x)
 
 
 
@@ -342,25 +342,23 @@ csize <- colSums(Z1)
 NZ1 <- Z1 %*% Diagonal(k,csize^(-1))  # normalized Z1
 cluster_mean <- t(NZ1)%*%t(A)
 grand_mean <- rowMeans(A)
-topwords<- matrix("", 40 ,k)
+distinctive_words<- matrix("", 40 ,k)
 terms <- rownames(A)
 for(i in 1:k){
   diff <- sqrt(cluster_mean[i,]) - sqrt(grand_mean)
-  topwords[,i] <- terms[order(-diff)[1:40]]
+  distinctive_words[,i] <- terms[order(-diff)[1:40]]
 }
-topwords 
-#write.csv(topwords, file ="../report/2016-12-01/top40_tweets.csv", row.names = F)
-write.csv(topwords, file ="./1209/L2/k50/A1_keywords_50.csv", row.names = F)
+distinctive_words 
+#write.csv(distinctive_words, file ="../report/2016-12-01/top40_tweets.csv", row.names = F)
+write.csv(distinctive_words, file ="./1209/L2/k50/keywords_50.csv", row.names = F)
 
 
 
 
 
 ### di-sim algorithm
-
 n <- dim(A)[1]  
 m <- dim(A)[2]
-
 
 ## L =
 D1 <- rowSums(A); summary(D1) # >= 20
@@ -418,6 +416,68 @@ dev.off()
 NMI(confMatrix)
 
 
+## combining certain similar clusters into 10 categories, 11 categories each
+library(xlsx)
+twitt200 <- read.xlsx("Topics and Following clusters.xlsx", 
+                       sheetName= 1, 
+                       stringsAsFactors = F)
+
+a <- c(which(!is.na(twitt200$Category)), 51)
+Yc <- matrix(0, 50, length(a)-1)   # categorial  membership
+for(i in 1: (length(a)-1)){
+  tmp <- twitt200$topic...1[a[i]:(a[i+1]-1)]
+  Yc[tmp, i] <- 1
+}
+name1  <- twitt200$Category[a[1:(length(a)-1)]]
+following <- read.xlsx("Topics and Following clusters.xlsx", 
+                       sheetName= 2, 
+                       stringsAsFactors = F)
+
+a <- c(which(!is.na(following$Category)), 51)
+Zc <- matrix(0, 50, length(a)-1)
+for(i in 1: (length(a)-1)){
+  tmp <- following$Cluster...1[a[i]:(a[i+1]-1)]
+  Zc[tmp, i] <- 1
+}
+name2  <- following$Category[a[1:(length(a)-1)]]
+
+confMatrix_categorial <- t(Z1 %*% Zc) %*% (Y%*%Yc)
+pdf(file = "./1209/L2/k50/confMat_categorial_10x10.pdf", onefile = T, width = 8, height = 7)
+library(ggplot2)
+confMatrix1 <- Diagonal(dim(Z1)[2], rowSums(confMatrix)^(-1))%*% confMatrix;
+ggplot(melt(as.matrix(confMatrix1)), aes(x=as.factor(Var1), y= as.factor(Var2), fill=value)) + 
+  geom_tile()+ labs(title = "row sum =1") + xlab("following cluster") + ylab("text cluster")
+confMatrix2 <- confMatrix %*% Diagonal(dim(Y)[2], colSums(confMatrix)^(-1));
+ggplot(melt(as.matrix(confMatrix2)),aes(x=as.factor(Var1), y= as.factor(Var2), fill=value)) + 
+  geom_tile()+ labs(title = "colnum sum =1") + xlab("following cluster") + ylab("text cluster")
+confMatrix3 <- Diagonal(dim(Z1)[2], rowSums(confMatrix)^(-1))%*% confMatrix %*% Diagonal(dim(Y)[2], colSums(confMatrix)^(-1))
+ggplot(melt(as.matrix(confMatrix3)),aes(x=as.factor(Var1), y= as.factor(Var2), fill=value)) + 
+  geom_tile()+ labs(title = "normalized by row and col") + xlab("following cluster") + ylab("text cluster") #+scale_fill_gradient(low="green", high="red")
+
+
+d1 <- dim(confMatrix_categorial)[1]; d2 <- dim(confMatrix_categorial)[2]
+AA <- matrix(0, d1+d2, d1+d2)
+AA[1:d1,(1+d1):(d2+d1)] <-1; AA[(d1+1):(d1+d2),1:d1] <- 1
+G <- graph_from_adjacency_matrix(AA)
+size1 <- rowSums(confMatrix_categorial); 
+size2 <- colSums(confMatrix_categorial)
+set.seed(100)
+l = layout.bipartite(G)
+V(G)$type <- c(rep(TRUE,d1), rep(FALSE, d2))
+V(G)$label = c(paste0("Fo",1:d1), paste0("Tw", 1:d2))
+V(G)$shape = c(rep("circle",d1), rep("circle", d2))
+V(G)$color = c(rep("dodgerblue",d1), rep("red",d2))
+V(G)$size = c(log(size1),log(size2))*2
+E(G)$weight =  c( as.vector(t(confMatrix_categorial)), as.vector(confMatrix_categorial))
+conf1 <- Diagonal(d1, size1^(-1)) %*% confMatrix_categorial;
+conf2 <- confMatrix_categorial %*% Diagonal(d2, size2^(-1))
+E(G)$width <- c(as.vector(t(conf1))*10, as.vector(conf2)*0)
+E(G)$color <- c(rep("dodgerblue", d1*d2), rep("red", d1*d2))
+plot(G, layout = l[,2:1], edge.arrow.size = 0.3 )
+
+E(G)$width <- c(as.vector(t(conf1))*0, as.vector(conf2)*10)
+E(G)$color <- c(rep("dodgerblue", d1*d2), rep("red", d1*d2))
+plot(G, layout = l[,2:1], edge.arrow.size = 0.3)
 
 # input: Y
 sizes <- colSums(Y)

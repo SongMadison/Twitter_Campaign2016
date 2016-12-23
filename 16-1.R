@@ -1,3 +1,7 @@
+## parallel processing the json, to get csv files
+
+
+
 library(jsonlite)
 data_folder <-
   "../data/followers_Network/followers_timeline_0_45k/"
@@ -40,7 +44,7 @@ results <-
              data.json <-
                paste0('[', paste0(data.str[idx], collapse = ","), ']')
              
-             dat <- fromJSON(data.json, simplifyDataFrame = T)
+             dat <- jsonlite::fromJSON(data.json, simplifyDataFrame = T)
              data.df <- simplify(dat)
              
              

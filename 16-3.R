@@ -93,15 +93,15 @@ write.csv(edgeList, file ="../data/trump_tweets/edgeList_fromFollowers.csv", row
 
 #download the tweets
 tweets_ids <- unique(edgeList$status_id_str)
-getStatuses(tweets_ids, "../data/trump_tweets_fromFollowers.json",oauth_folder ="./credentials/credential_mixed/")
+getStatuses(tweets_ids, "../data/trump_tweets/tweets_fromFollowers.json",oauth_folder ="./credentials/credential_mixed/")
 
 data.str <- readLines("../data/trump_tweets/tweets_fromFollowers.json")
 data.json <- paste0('[', paste0(data.str, collapse= ",") , ']')
 data.df <- jsonlite::fromJSON(data.json, simplifyDataFrame= T)
 data.df <- simplifyTwitterDF(data.df)
 #remove screen name is not realDonaldTrump, don't know why they came up ??
-data.df <- data.df[which(data.df$user_id_str == "25073877"),]   #2168 /2425
-write.csv(data.df, file = "../data/trump_tweets/trump_tweets_fromFollowers.csv", row.names = F)
+data.df <- data.df[which(data.df$user_id_str == "25073877"),] 
+write.csv(data.df, file = "../data/trump_tweets/tweets_fromFollowers.csv", row.names = F)
 
 
 
@@ -199,14 +199,14 @@ write.csv(edgeList2, file = "../data/trump_tweets/edgelist_fromHadoop.csv")
 
 
 tweets_ids <- unique(edgeList2$status_id_str)
-getStatuses(tweets_ids, "../data/trump_tweets_fromHadoop.json",oauth_folder ="./credentials/credential_mixed/")
+getStatuses(tweets_ids, "../data/trump_tweets/tweets_fromHadoop.json",oauth_folder ="./credentials/credential_mixed/")
 data.df <- jsonlite::fromJSON(data.json, simplifyDataFrame= T)
 data.str <- readLines("../data/trump_tweets/tweets_fromHadoop.json")
 data.json <- paste0('[', paste0(data.str, collapse= ",") , ']')
 data.df <- jsonlite::fromJSON(data.json, simplifyDataFrame= T)
 data.df <- simplifyTwitterDF(data.df)
 data.df <- data.df[which(data.df$user_id_str == "25073877"),]   #2168 /2425
-write.csv(data.df, file = "../data/trump_tweets/trump_tweets_fromHadoop.csv",row.names = F)  #11305/13560/14129
+write.csv(data.df, file = "../data/trump_tweets/tweets_fromHadoop.csv",row.names = F)  #11305/13560/14129
 
 
 
@@ -214,6 +214,52 @@ users_ids <- unique(edgesList2$user_id_str)
 users.info <- getUsersBatch(ids = users_ids,  output = "../data/trump_tweets/tweets_fromHadoop.json", 
               verbose = T, oauth_folder ="./credentials/credential_mixed/", random = F)
 write.csv(users.info, file = "../data/trump_tweets/users_fromHadoop.csv",row.names = F)  #13560/14129   [1] 0.9597282
+
+
+
+
+
+##############################################################################################################################
+##################save as RData.file
+##############################################################################################################################
+
+
+edgelist_file <- "../data/trump_tweets/edgeList_fromFollowers.csv"
+tweets_file <- "../data/trump_tweets/tweets_fromFollowers.csv"
+users_file <- "../data/followers_Network/followers_info_status.csv"
+Rdata_file <- "../data/trump_tweets/retweet_fromFollowers.RData"
+
+
+edgelist_file <- "../data/trump_tweets/edgelist_fromHadoop.csv"
+tweets_file <- "../data/trump_tweets/tweets_fromHadoop.csv"
+users_file <- "../data/trump_tweets/users_fromHadoop.csv"
+Rdata_file <- "../data/trump_tweets/retweet_fromHadoop.RData"
+
+edgelist <- read.csv(edgelist_file, stringsAsFactors = F)
+edgelist$user_id_str <- as.character(edgelist$user_id_str);
+edgelist$status_id_str <- as.character(edgelist$status_id_str); 
+dim(edgelist); length(unique(edgelist$user_id_str)); length(unique(edgelist$status_id_str))
+
+tweets <- read.csv(tweets_file, stringsAsFactors = F) 
+tweets$id_str <- as.character(tweets$id_str)  ;dim(tweets)
+tweets$created_at <- formatTwDate(tweets$created_at)
+tweets<- tweets[tweets$created_at < as.POSIXct('2016-11-08 21:00:00'),]; dim(tweets)
+tweets$source <- gsub( ".* rel=\"nofollow\">(.*)</a>", "\\1", tweets$source)
+tweets$text <- gsub("[\n\t\r]", " ", tweets$text)
+
+users <- read.csv(users_file, stringsAsFactors = F)
+users$id_str <- as.character(users$id_str) ; dim(users)
+tmp <- match(edgelist$status_id_str, tweets$id_str); sum(is.na(tmp))
+edgelist <- edgelist[!is.na(tmp),]; dim(edgelist); length(unique(edgelist$status_id_str))
+
+tmp <- match(edgelist$user_id_str, users$id_str); sum(is.na(tmp))
+edgelist <- edgelist[!is.na(tmp),];dim(edgelist); length(unique(edgelist$status_id_str))
+
+tmp <- match(unique(edgelist$user_id_str), users$id_str); users <- users[tmp[!is.na(tmp)],]; dim(users)   
+tmp <- match(unique(edgelist$status_id_str), tweets$id_str); tweets<- tweets[tmp[!is.na(tmp)],];dim(tweets) 
+
+
+save(edgelist, users, tweets, file =Rdata_file)
 
 
 

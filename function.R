@@ -296,18 +296,18 @@ simplifyTwitterDF <- function(dat) {
   
   lst <-
     list(
-      created_at = created_at,
+      created_at = formatTwDate(created_at),
       id_str = id_str,
-      text = text,
+      text = gsub("[\n\t\r]", " ", text),
       truncated = truncated,
-      source = source,
+      source = gsub( ".* rel=\"nofollow\">(.*)</a>", "\\1", source),
       in_reply_to_status_id_str = in_reply_to_status_id_str,
       in_reply_to_user_id_str = in_reply_to_user_id_str,
       in_reply_to_screen_name = in_reply_to_screen_name,
       user_id_str = user_id_str,
       user_screen_name = user_screen_name,
       place_name = place_name,
-      place_country,
+      place_country = place_country,
       is_quote_status = is_quote_status,
       retweet_count = retweet_count,
       favorite_count = favorite_count,
