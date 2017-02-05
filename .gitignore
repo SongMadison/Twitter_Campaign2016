@@ -24,6 +24,9 @@ twitteR/
 *.Rdata
 *.json
 *.txt
+*.csv
+*.xls
+*.xlsx
 
 
 #Rmarkdown

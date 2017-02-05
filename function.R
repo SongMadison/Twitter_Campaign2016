@@ -42,28 +42,81 @@ myConvertJson <- function(json.data){
 
 
 
-# kmans diganosis
-balloonplot <- function(A, label_row, label_col, probility =F){
-  k_ = max(label_row)
-  followersZ <- matrix(0, dim(A)[1], k_)
-  friendsZ <- matrix(0, dim(A)[2], k_)
-  for ( i in 1:k_){
-    followersZ[which(label_row ==i), i] = 1
-    friendsZ[which(label_col== i), i] = 1
-  }
+balloon.plot <- function(A, ylabel = NULL, xlabel = NULL , main = NULL){
+  nr <- nrow(A)
+  A <- A[nr:1,];  
+  dat1 <- flattenMatrix(A)
+  dat1$row <- as.factor(dat1$row); dat1$col <- as.factor(dat1$col)
+  if (length(which(A<0))>0){
+    dat1$sign <- as.factor(1*(dat1$value>0))
+    dat1$sign <-factor(dat1$sign, levels =c(1,0), labels = c(">0","<0"))
+    dat1$value <- abs(dat1$value)
+  } 
+  if (!is.null(ylabel)) {dat1$row <- factor(dat1$row, levels = 1:nrow(A), ylabel[nr:1])
+  } else {dat1$row <- factor(dat1$row, levels = 1:nrow(A), as.character(nr:1) )}
+  if (!is.null(xlabel)) { dat1$col <- factor(dat1$col, levels = 1:ncol(A), xlabel)}
+  else{ dat1$col <- factor(dat1$col)}
+  #dat1$ <-  dat1$value > quantile(dat1$value, 0.9)
+  p <- ggplot(dat1,  aes(x = col, y= row ))
   
-  blockM <- t(followersZ) %*% A %*% friendsZ
-  if(probility){
-    blockM <- Diagonal(k_, colSums(followersZ)^(-1))%*% blockM  %*%
-              Diagonal(k_, colSums(friendsZ)^(-1))
+  if (length(which(A<0))>0){
+    p1 <- p + geom_point(aes(size = value, colour = sign), shape = 16) +xlab('')+ylab('')
+  }else{
+    p1 <- p + geom_point(aes(size = value), color = "blue", shape = 16) +xlab('')+ylab('')
   }
-  
-  data1 <- flattenMatrix(blockM)
-  s <- ggplot(data1,  aes(factor(col), factor(row)),fill = factor(row))
-  p1 <- s + geom_point(aes(size = sqrt(value), col = factor(row)))
-  p1
+  if (! is.null(xlabel)) {
+    p1 <- p1 + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  }
+  p1 + ggtitle(main) + scale_size(range = c(0.3,3))
 }
 
+
+
+# Multiple plot function
+# copy and modified from: http://www.cookbook-r.com/Graphs/Multiple_graphs_on_one_page_(ggplot2)/
+# ggplot objects can be passed in ..., or to plotlist (as a list of ggplot objects)
+# - cols:   Number of columns in layout
+# - layout: A matrix specifying the layout. If present, 'cols' is ignored.
+#
+# If the layout is something like matrix(c(1,2,3,3), nrow=2, byrow=TRUE),
+# then plot 1 will go in the upper left, 2 will go in the upper right, and
+# 3 will go all the way across the bottom.
+#
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+  library(grid)
+  
+  # Make a list from the ... arguments and plotlist
+  plots <- c(list(...), plotlist)
+  
+  numPlots = length(plots)
+  
+  # If layout is NULL, then use 'cols' to determine layout
+  if (is.null(layout)) {
+    # Make the panel
+    # ncol: Number of columns of plots
+    # nrow: Number of rows needed, calculated from # of cols
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                     ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+  
+  if (numPlots==1) {
+    print(plots[[1]])
+    
+  } else {
+    # Set up the page
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+    
+    # Make each plot, in the correct location
+    for (i in 1:numPlots) {
+      # Get the i,j matrix positions of the regions that contain this subplot
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+      
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }
+}
 
 high.deg.cluster <- function(A, label_row, label_col = NULL){
   
@@ -120,11 +173,11 @@ high.innerProd<- function(X, X.normed, label){
 
 ###create a graph from edgeslit
 ### depends on package igraph
-createGraph <- function(edgelist){
-  id1 <- unique(edgelist[,1])
-  id2 <- unique(edgelist[,2])
+createGraph <- function(el){
+  id1 <- unique(el[,1])
+  id2 <- unique(el[,2])
   id_all <- c(id1, id2[is.na(match(id2, id1))])
-  g <- graph_from_edgelist(as.matrix(edgelist),directed = T)
+  g <- graph_from_el(as.matrix(el),directed = T)
   A <- get.adjacency(g)
   idx_row <- match(id1, V(g)$name)
   idx_col <- match(id2, V(g)$name )
@@ -153,7 +206,7 @@ removeMostPunctuation<-
       x <- gsub("#", "\002", x)
       x <- gsub("[[:punct:]]+", "", x)
       x <- gsub("\001", "@", x, fixed = TRUE)
-      x <- gsub("\002", "#", x, fixed = TRUE)
+      x <- gsub("\002", " #", x, fixed = TRUE)
       return (x)
     }
     if (preserve_intra_word_dashes) { 
@@ -171,9 +224,7 @@ removeMostNumbers <- function(x){
 
 
 
-removeplural_past<- function(tdm, terms){
-  
-  
+removePluralPast<- function(tdm, terms){
   # remove 's' 
   # for word ends with 's', whether the word without 's' is in terms. 
   # like designs is in, check the posiition of design, all the locations of design alike are returned
@@ -197,6 +248,48 @@ removeplural_past<- function(tdm, terms){
   
 }
 
+
+
+
+bag_of_word_tweets <- function(textvector, bigram = F){
+  
+  text <- removeMostPunctuation(text, preserve_intra_word_dashes = T)
+  text <- removeMostNumbers(text)
+  
+  #remove some special characters or emoji
+  text <- gsub("\U0001f1fa", " " ,text); text <- gsub("\U0001f1f8", " ", text)
+  text <- gsub("\u274c", " ", text)
+  text <- gsub("\\s+", " ", text)
+  vc <- VCorpus( VectorSource(text) ) # just change the vector of strings to corpus
+  if(bigram){
+    BigramTokenizer <- function(x){
+      bigram <- unlist(lapply(ngrams(words(x), 2), paste, collapse = " "), use.names = FALSE)
+      words <- unlist(words(x)) ;tokens <- c(words,bigram)
+      return (tokens)  
+    }
+    ctrl <- list( #removePunctuation = list(preserve_intra_word_dashes = TRUE),
+      stopwords = TRUE,
+      removeNumbers = FALSE
+      #, stemming = TRUE                    # remove prefix or postfix
+      , bounds = list(global= c(2,Inf))   # remove low-frequency/high frequency words
+      #, wordLengths = c(4, 20) # remove short words like 'a' 
+      #, weighting = function(x) weightSMART(x, spec = "nnn")
+      ,tokenize = BigramTokenizer
+    )
+  }else{
+    ctrl <- list( #removePunctuation = list(preserve_intra_word_dashes = TRUE),
+      stopwords = TRUE,
+      removeNumbers = FALSE
+      #, stemming = TRUE                    # remove prefix or postfix
+      , bounds = list(global= c(2,Inf))   # remove low-frequency/high frequency words
+      #, wordLengths = c(4, 20) # remove short words like 'a' 
+      #, weighting = function(x) weightSMART(x, spec = "nnn")
+      #,tokenize = BigramTokenizer
+    )
+  }
+  tdm <- TermDocumentMatrix(vc, control = ctrl)
+  return (tdm)
+}
 
 
 VI <- function(confMatrix){
@@ -257,8 +350,6 @@ unlistWithNA <- function(field) {
   return (vect)
 }
 
-#selected certain variables, put in the function.R
-#simplify <- function(dat) , 
 #dat is output of  #jsonlite::fromJSON(, simplifyDataFrame = T)
 simplifyTwitterDF <- function(dat) {
   created_at = unlistWithNA(dat$created_at)
@@ -267,17 +358,40 @@ simplifyTwitterDF <- function(dat) {
   truncated = unlistWithNA(dat$truncated)
   #entities = unlist(dat$entities),
   source = unlistWithNA(dat$source)
+  
   in_reply_to_status_id_str = unlistWithNA(dat$in_reply_to_status_id_str)
   in_reply_to_user_id_str = unlistWithNA(dat$in_reply_to_user_id_str)
-  in_reply_to_screen_name = unlistWithNA(dat$in_reply_to_screen_name)
+  #in_reply_to_screen_name = unlistWithNA(dat$in_reply_to_screen_name)
   if (is.null(dat$user)) {
     user_id_str = rep(NA, nrow(dat))
-    user_screen_name = rep(NA, nrow(dat))
+    #user_screen_name = rep(NA, nrow(dat))
   } else{
     user_id_str = unlistWithNA(dat$user$id_str)
-    user_screen_name = unlistWithNA(dat$user$screen_name)
+    #user_screen_name = unlistWithNA(dat$user$screen_name)
   }
   
+  if(is.null(dat$quoted_status)){
+    quoted_status_created_at = rep(NA, nrow(dat))
+    quoted_status_id_str = rep(NA, nrow(dat))
+    quoted_status_text = rep(NA, nrow(dat))
+    quoted_status_user_id_str <- rep(NA, nrow(dat))
+  }else{
+    quoted_status_created_at <- unlistWithNA(dat$quoted_status$created_at)
+    quoted_status_id_str <- unlistWithNA(dat$quoted_status$id_str)
+    quoted_status_text <- unlistWithNA(dat$quoted_status$text)
+    quoted_status_user_id_str <- unlistWithNA(dat$quoted_status$user$id_str)
+  }
+  if(is.null(dat$retweeted_status)){
+    retweet_status_created_at = rep(NA, nrow(dat))
+    retweet_status_id_str = rep(NA, nrow(dat))
+    retweet_status_text = rep(NA, nrow(dat))
+    retweet_status_user_id_str = rep(NA, nrow(dat))
+  }else{
+    retweet_status_created_at  <- unlistWithNA(dat$retweeted_status$created_at)
+    retweet_status_id_str <- unlistWithNA(dat$retweeted_status$id_str)
+    retweet_status_text <- unlistWithNA(dat$retweeted_status$text)
+    retweet_status_user_id_str = unlistWithNA(dat$retweeted_status$user$id_str)
+  }
   if (is.null(dat$place) ||
       is.null(names(dat$place))) {
     # no place obj
@@ -287,7 +401,6 @@ simplifyTwitterDF <- function(dat) {
     place_name = unlistWithNA(dat$place$name)
     place_country = unlistWithNA(dat$place$country)
   }
-  is_quote_status = unlistWithNA(dat$is_quote_status)
   retweet_count = unlistWithNA(dat$retweet_count)
   favorite_count = unlistWithNA(dat$favorite_count)
   favorited = unlistWithNA(dat$favorited)
@@ -303,12 +416,19 @@ simplifyTwitterDF <- function(dat) {
       source = gsub( ".* rel=\"nofollow\">(.*)</a>", "\\1", source),
       in_reply_to_status_id_str = in_reply_to_status_id_str,
       in_reply_to_user_id_str = in_reply_to_user_id_str,
-      in_reply_to_screen_name = in_reply_to_screen_name,
+      #in_reply_to_screen_name = in_reply_to_screen_name,
+      quoted_status_created_at = quoted_status_created_at,
+      quoted_status_id_str = quoted_status_id_str,
+      quoted_status_text = quoted_status_text,
+      quoted_status_user_id_str = quoted_status_user_id_str,
+      retweet_status_id_str  = retweet_status_id_str ,
+      retweet_status_created_at = retweet_status_created_at,
+      retweet_status_text = retweet_status_text,
+      retweet_status_user_id_str = retweet_status_user_id_str ,
       user_id_str = user_id_str,
-      user_screen_name = user_screen_name,
+      #user_screen_name = user_screen_name,
       place_name = place_name,
       place_country = place_country,
-      is_quote_status = is_quote_status,
       retweet_count = retweet_count,
       favorite_count = favorite_count,
       favorited = favorited,
@@ -362,4 +482,53 @@ membershipM <- function(labs){
     Z[which(labs == i), i] <- 1 
   }
   return(Z)
+}
+
+
+
+
+graph_component <- function(el, connected = T){
+  user_ids <- unique(el[,1]); tweets_ids <- unique(el[,2])
+  graph <- graph_from_edgelist(as.matrix(el), directed = T)
+  if (connected){
+    clustg <- clusters(graph)
+    giant_id <- which.max(clustg$csize)
+    giant <- induced_subgraph(graph, vids = which(clustg$membership==giant_id)) 
+    nodes <- names( V(giant) ); 
+    idx_users <- match(user_ids, nodes); idx_users <- idx_users[which(!is.na(idx_users))];
+    idx_tweets <- match(tweets_ids, nodes); idx_tweets <- idx_tweets[which(!is.na(idx_tweets))];
+    A <- get.adjacency(giant) ; dim(A);sum(A)/nrow(A)
+  }else{
+    A <- get.adjacency(graph)
+    idx_users <- match(user_ids, names(V(graph))); idx_tweets <- match(tweets_ids, names(V(graph)))
+  }
+  A <- A[idx_users,idx_tweets]; 
+  return(A)
+}
+
+
+representative_rows <- function(X, clust, top = 20){
+  nr <- dim(X)[1]; k <- dim(X)[2]
+  norm1 <- sqrt(1e-6 + rowSums(X*X))
+  X1 <- Diagonal(nr,norm1^(-1))%*%X
+  Z <- membershipM(clust)
+  NZ <- Z %*% Diagonal(k, 1/colSums(Z))
+  centers <- t(NZ) %*% X1
+  goodrows <- matrix(NA, top, k)
+  for( i in 1:k ){
+    top1 <- min(top, sum(clust == i))
+    values <- X[clust == i, ]%*%as.vector(centers[i,])
+    ord <- order(-values)[1:top1]
+    goodrows[1:top1,i] <- which(clust == i)[ord]
+  }
+  return(goodrows)
+}
+
+#lab = 1:k; expected = k:1
+swichLables <- function(x, lab, expected){
+  x1 <- x
+  for ( i in 1:length(lab)){
+    x1[x == lab[i]] <- expected[i]
+  }
+  return (x1)
 }

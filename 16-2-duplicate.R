@@ -1,23 +1,16 @@
-## parallel processing the json, to get csv files
-
-
 rm(list =ls())
-source("Head_file.R")
+source("Head_file.R") # packages
 source("function.R")
+#data_folder <- "../data/followers_Network/followers_timeline1/"
+# data_folder <- "../data/followers_Network/followers_timeline_0_45k/"
+# output_folder <- "../data/followers_Network/followers_timeline_0_45k_csv/"
+
 data_folder <-
-  "../data/followers_Network/followers_timeline_0_45k/"
+  "../data/followers_Network/followers_timeline_45k_76k/"
 output_folder <-
-  "../data/followers_Network/followers_timeline_0_45k_csv/"
-
-
-# data_folder <-
-#   "../data/followers_Network/followers_timeline_45k_76k/"
-# output_folder <-
-#   "../data/followers_Network/followers_timeline_45k_76k_csv/"
-# files = list.files(data_folder)
-
-
+  "../data/followers_Network/followers_timeline_45k_76k_csv/"
 files = list.files(data_folder)
+## missing then filled with 'NA'
 
 interval = 100
 nbreaks =  ceiling(length(files) / interval)
@@ -27,8 +20,8 @@ cl <- makeCluster(floor(n_cores / 2))
 registerDoParallel(cl)
 results <-
   foreach (i = 1:nbreaks,
-	   .combine = rbind,
-           .packages = c("jsonlite", "smappR")) %dopar% {
+           .combine = rbind,
+           .packages = c("jsonlite","smappR")) %dopar% {
              #i =1
              p1 <- Sys.time()
              data.str <- NULL
@@ -47,6 +40,8 @@ results <-
              
              dat <- jsonlite::fromJSON(data.json, simplifyDataFrame = T)
              data.df <- simplifyTwitterDF(dat)
+             
+             
              #lst2 <- lapply(lst1, function(x) selected(x))
              # lst3 <- lapply(lst2, function(x) as.data.frame(x))
              # data.df <- do.call("rbind", lst3)
@@ -62,7 +57,5 @@ results <-
                   time = Sys.time() - p1)
            }
 stopCluster(cl)
-write.csv(results, file = "results1.csv", row.names = F)
-
-
+write.csv(results, file = "results2.csv", row.names = F)
 

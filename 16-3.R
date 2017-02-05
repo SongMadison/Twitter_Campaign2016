@@ -1,5 +1,6 @@
 rm(list = ls ())
 source("Head_file.R")
+source("function.R")
 #construct the retweets network
 
 
@@ -27,16 +28,22 @@ source("Head_file.R")
 # total 3151 different tweets
 
 
-
-uniqueTweets <- function(data_folder){
+Tweets_folder <- function(data_folder){
   
-  getTrumpTweets <- function(filepath){
-    dat <- read.csv(filepath, stringsAsFactors = F)
-    dat$in_reply_to_status_id_str <- as.character(dat$in_reply_to_status_id_str);names(dat)[11] <-"place_country"
-    tweets<- dat[which(dat$in_reply_to_screen_name =="realDonaldTrump"),]
+  # individual file
+  getTrumpTweets <- function(filepath, target_user_id_str){
+    #target_user_id_str ="25073877"
+    dat <- read.csv(filepath, colClasses = c("character"), stringsAsFactors = F)
+    idx1 <- which( ((dat$in_reply_to_user_id_str == target_user_id_str) * 
+                      (!is.na(dat$in_reply_to_status_id_str))) >0)      #reply, or mention
+    idx2 <- which(( (  dat$quoted_status_user_id_str == target_user_id_str ) * 
+                      (!is.na(dat$quoted_status_id_str))) >0)   # quoted + comments
+    idx3 <- which(( (  dat$retweet_status_user_id_str == target_user_id_str ) * 
+                      (!is.na(dat$retweet_status_id_str))) >0)  # retweet + no comments
+    idx <- unique(c(idx1, idx2, idx3))
+    tweets<- dat[idx,]
     return(tweets)
   }
-  #sample: some in_reply_to_status_id_str = NA, while screen_name = Trump
   
   files <- list.files(data_folder)
   n_cores = detectCores()
@@ -45,63 +52,166 @@ uniqueTweets <- function(data_folder){
   tweets  <- foreach (i = 1:length(files),
                           .combine = rbind) %dopar% {
                             filepath <- paste0(data_folder, files[i])
-                            getTrumpTweets(filepath)
+                            getTrumpTweets(filepath, "25073877")
                           }
   stopCluster(cl)
   return (tweets)
 }  
-library(doParallel)
-tweets1 <-   uniqueTweets( "../data/followers_Network/followers_timeline_0_45k_csv/")
-tweets2 <-   uniqueTweets( "../data/followers_Network/followers_timeline_45k_76k_csv/")
-tweets <- rbind(tweets1, tweets2)
-write.csv(tweets, file ="../data/trump_tweets/tweets_fromFollowers_Trump.txt", row.names = F)  # contain replies, not retweet
 
-edgeList_folder <- function(data_folder){
+
+# construct edgelist from 
+createEdgelist <- function(tweets, method ="all"){
   
-  edgeList_file <- function(filepath){
-    dat <- read.csv(filepath, stringsAsFactors = F)
-    dat$user_id_str <- as.character(dat$user_id_str)
-    dat$in_reply_to_status_id_str <- as.character(dat$in_reply_to_status_id_str)
-    #names(dat)[11] <-"place_country"
-    # checked! two conditions are actually the same  -- (dat$in_reply_to_user_id_str =="25073877")*
-    idx <- which( ((dat$in_reply_to_screen_name =="realDonaldTrump") * 
-                     (!is.na(dat$in_reply_to_status_id_str))) >0)
-    edges <- data.frame( user_id_str = dat$user_id_str[idx], status_id_str = dat$in_reply_to_status_id_str[idx],  stringsAsFactors = F)
-    return(edges)
+  if (method == "reply"){
+    from_user_id <- tweets$user_id_str
+    from_status_id <-  tweets$id_str
+    to_status_id <-  tweets$in_reply_to_status_id_str
+  }else if (method == "retweet"){
+    from_user_id <-  tweets$user_id_str
+    from_status_id <- tweets$id_str
+    to_status_id <- tweets$retweet_status_id_str
+    to_status_id[which(!is.na(tweets$quoted_status_id_str))] <- 
+      tweets$quoted_status_id_str[which(!is.na(tweets$quoted_status_id_str))]
+  } else if (method == 'all'){
+    from_user_id <-  tweets$user_id_str
+    from_status_id <- tweets$id_str
+    to_status_id <- tweets$in_reply_to_status_id_str
+    to_status_id[which(!is.na(tweets$quoted_status_id_str))] <- 
+      tweets$quoted_status_id_str[which(!is.na(tweets$quoted_status_id_str))]
+    to_status_id[which(!is.na(tweets$retweet_status_id_str))] <- 
+      tweets$retweet_status_id_str[which(!is.na(tweets$retweet_status_id_str))]
+  }else{
+    print("method is wrong")
+    return (NULL)
   }
   
-  files <- list.files(data_folder)
-  n_cores = detectCores()
-  cl <- makeCluster(floor(n_cores / 2))
-  registerDoParallel(cl)
-  edgesall <- foreach (i = 1:length(files),
-                          .combine = rbind) %dopar% {
-                            filepath <- paste0(data_folder, files[i])
-                            edgeList_file(filepath)  }
-  stopCluster(cl)
-  return(edgesall)
+  df <- data.frame(from_user_id = from_user_id,
+      from_status_id = from_status_id, to_status_id = to_status_id, stringsAsFactors = F)
+  df <- df[which(!is.na(df$to_status_id)),]
 }
 
-library(doParallel)
-data_folder1 <-
-  "../data/followers_Network/followers_timeline_0_45k_csv/"
-data_folder2 <-
-  "../data/followers_Network/followers_timeline_45k_76k_csv/"
-edgeList <- rbind ( edgeList_folder( data_folder1 ), edgeList_folder (data_folder2) )
-write.csv(edgeList, file ="../data/trump_tweets/edgeList_fromFollowers.csv", row.names = F)
 
+
+library(doParallel)
+tweets1 <-   Tweets_folder( "../data/followers_Network/followers_timeline_0_45k_csv/")
+tweets2 <-   Tweets_folder( "../data/followers_Network/followers_timeline_45k_76k_csv/")
+tweets <- rbind(tweets1, tweets2)
+ids_unique <- unique(tweets$id_str)  
+tweets <- tweets[match(ids_unique, tweets$id_str),]  ## match function will return the first index
+#74842
+tweets <- tweets[tweets$created_at < '2016-11-09 00:00:00',]
+tweets <- tweets[tweets$created_at > '2015-01-01 00:00:00',]
+#write.csv(tweets, file ="../data/trump_tweets/tweets_fromFollowers_Trump.txt", row.names = F) 
+#59905    23
+following_cluster <- read.csv("./1209/following/k50/id_sn_cluster.csv", 
+                              colClasses = c("character","character"),
+                              stringsAsFactors = F)
+tweets <- tweets[!is.na (match(tweets$user_id_str, following_cluster$id_str)),]
+write.csv(tweets, file = "../data/trump_tweets/followers_tweets/alltweets-followers-Trump.csv", 
+          row.names = F)  ## 59904 obs
+
+reply_ids <- tweets$in_reply_to_status_id_str
+reply_ids <- reply_ids[!is.na(reply_ids)]  #21952
+getStatuses(ids = reply_ids, filename = "../data/trump_tweets/followers_tweets/reply.json", 
+            oauth_folder = "./credentials/credential_mixed1/"  )
+data.str <- readLines("../data/trump_tweets/followers_tweets/reply.json")
+#data.json <- paste0('[', paste0(data.str, collapse= ",") , ']')
+data.json <- myToJSON(data.str)
+data.df <- jsonlite::fromJSON(data.json, simplifyDataFrame= T)
+reply.df <- simplifyTwitterDF(data.df)
+write.csv(reply.df, file = "../data/trump_tweets/followers_tweets/reply.csv", row.names = F)
+
+
+quoted_ids <- tweets$quoted_status_id_str
+quoted_ids <- quoted_ids[!is.na(quoted_ids)]    #4573
+getStatuses(ids = quoted_ids, filename = "../data/trump_tweets/followers_tweets/quoted.json", 
+            oauth_folder = "./credentials/credential_mixed2/"  )
+
+data.str <- readLines("../data/trump_tweets/followers_tweets/quoted.json")
+#data.json <- paste0('[', paste0(data.str, collapse= ",") , ']')
+data.json <- myToJSON(data.str)
+data.df <- jsonlite::fromJSON(data.json, simplifyDataFrame= T)
+quoted.df <- simplifyTwitterDF(data.df)
+write.csv(quoted.df, file = "../data/trump_tweets/followers_tweets/quoted.csv", row.names = F)
+
+
+
+tweetsFromHadoop <- read.csv( "../data/trump_tweets/tweets_fromHadoop.csv",colClasses = c("character"),
+                              stringsAsFactors = F)
+dim(tweetsFromHadoop)  ## 11305 
+
+idx1 <- which(is.na(samp_tweets$in_reply_to_text) * (!is.na(samp_tweets$in_reply_to_status_id_str)) >0 )
+tw_ids <- samp_tweets$in_reply_to_status_id_str[idx1]; length(tw_ids)
+cat( sum(!is.na( match(tw_ids, tweetsFromHadoop$id_str))), "out of ",length(tw_ids)," missing replied_twitters are availalbe in Hadoop")
+
+samp_tweets$in_reply_to_created_at[idx1] <- tweetsFromHadoop$created_at[match(tw_ids, tweetsFromHadoop$id_str)]
+samp_tweets$in_reply_to_text[idx1] <- tweetsFromHadoop$text[match(tw_ids, tweetsFromHadoop$id_str)]
+
+#for retweeted, either id_str exists with text ; or nothing is avaialbe
+idx2 <- which(is.na(samp_tweets$quoted_status_text) * (!is.na(samp_tweets$quoted_status_id_str)) >0 )
+length(idx2)
+
+
+# library(xlsx)
+# write.xlsx2(tweets, sheetName ="retweets_reply", file  = "../data/trump_tweets/followers_tweets/follwers-tweets-Trump.xlsx")
+# write.xlsx2(reply.df, sheetName ="reply", file  = "../data/trump_tweets/followers_tweets/follwers-tweets-Trump.xlsx")
+# write.xlsx2(quoted.df, sheetName ="retweet", file  = "../data/trump_tweets/followers_tweets/follwers-tweets-Trump.xlsx")
+
+
+
+
+
+  
+edgeList <- createEdgelist(tweets, method = "all")
+el_reply = createEdgelist(tweets, method = "reply")
+el_retweet = edgelist(tweets, method = "retweet")
+write.csv(edgeList, file="../data/trump_tweets/followers_tweets/edgelist.csv", row.names = F)
+write.csv(el_reply, file = "../data/trump_tweets/followers_tweets/edgelist_reply.csv", row.names = F)
+write.csv(el_retweet, file = "../data/trump_tweets/followers_tweets/edgelist_retweet.csv", row.names = F)
 
 #download the tweets
-tweets_ids <- unique(edgeList$status_id_str)
-getStatuses(tweets_ids, "../data/trump_tweets/tweets_fromFollowers.json",oauth_folder ="./credentials/credential_mixed/")
+tweets_ids <- unique(edgeList$to_status_id) #3741
+# getStatuses(tweets_ids, "../data/trump_tweets/followers_tweets/tweets-Trump.json",
+# oauth_folder ="./credentials/credential_mixed3/")
 
-data.str <- readLines("../data/trump_tweets/tweets_fromFollowers.json")
-data.json <- paste0('[', paste0(data.str, collapse= ",") , ']')
+data.str <- readLines("../data/trump_tweets/followers_tweets/tweets-Trump.json")
+
+#data.json <- paste0('[', paste0(data.str, collapse= ",") , ']')
+data.json <- myToJSON(data.str)
 data.df <- jsonlite::fromJSON(data.json, simplifyDataFrame= T)
+#due to double downloading, cuplicate
 data.df <- simplifyTwitterDF(data.df)
+data.df <- data.df[match(unique(data.df$id_str), data.df$id_str),]
 #remove screen name is not realDonaldTrump, don't know why they came up ??
-data.df <- data.df[which(data.df$user_id_str == "25073877"),] 
-write.csv(data.df, file = "../data/trump_tweets/tweets_fromFollowers.csv", row.names = F)
+data.df <- data.df[which(data.df$user_id_str == "25073877"),]   #2616
+
+tw_ids <- tweets_ids[is.na(match(tweets_ids, data.df$id_str))]; 
+length(tw_ids)
+tweetsFromHadoop <- read.csv( "../data/trump_tweets/tweets_fromHadoop.csv",colClasses = c("character"),
+                              stringsAsFactors = F)
+dim(tweetsFromHadoop)  ## 11305 
+
+
+idx <- match(tw_ids , tweetsFromHadoop$id_str); sum(is.na(idx))
+cat( "out of ", length(tw_ids), "which are not available from API", " only ",sum(is.na(idx)), "are not contained in the database")
+idx1 <- match(tweets_ids, tweetsFromHadoop$id_str); 
+cat( "out of ", length(tweets_ids), " only ",sum(is.na(idx1)), "are not contained in the database") 
+
+names(tweetsFromHadoop)[12] <-"place_country"
+names(data.df)
+idx2 <- match( names(tweetsFromHadoop), names(data.df)); 
+data2.df <- tweetsFromHadoop[,names(data.df)[idx2[!is.na(idx2)]]][idx[!is.na(idx)],]
+data.df <-rbind(data.df[,names(data.df)[idx2[!is.na(idx2)]]], data2.df)
+write.csv(data.df, file = "../data/trump_tweets/followers_tweets/tweets-Trump.csv", 
+          row.names = F)  # 2900
+
+
+## 
+followers_ids <- unique(edgeList$from_user_id) #8672
+# followers_info_new <- getUsersBatch(ids = followers_ids, oauth_folder = "./credentials/credential_mixed3/",
+#               output = "../data/trump_tweets/followers_tweets/followersAll_Trump_new.json", verbose = T)
+# write.csv(followers_info_new, file ="../data/trump_tweets/followers_tweets/followersAll_Trump_new.csv", 
+#           row.names = F)
 
 
 
@@ -110,158 +220,34 @@ write.csv(data.df, file = "../data/trump_tweets/tweets_fromFollowers.csv", row.n
 
 
 
-##################################################################################################################################
-#                read the all the retweets about Donald Trump from the Journalism Hadoop
-##################################################################################################################################
+el <- read.csv("../data/trump_tweets/followers_tweets/edgelist.csv", 
+                     colClasses=c("character","character", "character"), stringsAsFactors = F)
+el<- el[,c(1,3)]; el$from_user_id <- as.character(el$from_user_id)
 
 
-
-# collects the tweets from hadoop
-# bigmem04,  ~ 10 mins
-data_folder = "/p/stat/songwang/trump.retweet.long-nov12/"
-
-tweetsIDs_fromHadoop <- function(data_folder){
-  
-  files <- list.files(data_folder) #18k files
-  interval = 500
-  nbreaks = ceiling(length(files)/interval)
-  headers = c('tweet_id_str', 'created_at','user_id_str','user_name',
-              'user_screen_name','user_description','user_followers_count', 'user_friends_count', 
-              'user_verified','geo_type','geo.coordinates','text', 
-              'retweet_id_str','retweet_created_at', 'retweet_user_id_str',
-              'retweet_user_name','retweet_user_screen_name', 'retweet_user_description',
-              'retweet_user_followers_count','retweet_user_friends_count', 'retweet_user_verified',
-              'retweet_ugeo_type','retweet_geo_coordinates','retweet_text',
-              'user_metion_screen_name')
-  
-  n_cores = detectCores()
-  cl <- makeCluster(floor(n_cores / 2))
-  registerDoParallel(cl)
-  retweets_ids <- foreach ( i =1 :nbreaks, .combine = c) %dopar% {
-    idx_start <- interval*(i-1)+1; idx_end = interval*i
-    if (i == nbreaks){ idx_end = length(files) }
-    dat <- NULL
-    for(j in idx_start:idx_end){
-      filepath <- paste0(data_folder, files[j])
-      dat <- c(dat, readLines(filepath))
-    }
-    dat1 <- do.call("rbind", lapply(dat, function(x) unlist(strsplit(x, '\t')))  )
-    dat2 <- data.frame(dat1, stringsAsFactors = F)
-    colnames(dat2) <- headers
-    unique(dat2$retweet_id_str)
-  }
-  stopCluster(cl)
-  return(retweets_ids)
-}
-retweets_ids <- unique( tweetsIDs_fromHadoop(data_folder))
-
-write(retweets_ids, file = "../data/trump_tweets/tweets_ids_fromHadoop.txt")
-
-edgeList_fromHadoop <- function(data_folder){
-  
-  files <- list.files(data_folder) #18k files
-  interval = 500
-  nbreaks = ceiling(length(files)/interval)
-  headers = c('tweet_id_str', 'created_at','user_id_str','user_name',
-              'user_screen_name','user_description','user_followers_count', 'user_friends_count', 
-              'user_verified','geo_type','geo.coordinates','text', 
-              'retweet_id_str','retweet_created_at', 'retweet_user_id_str',
-              'retweet_user_name','retweet_user_screen_name', 'retweet_user_description',
-              'retweet_user_followers_count','retweet_user_friends_count', 'retweet_user_verified',
-              'retweet_ugeo_type','retweet_geo_coordinates','retweet_text',
-              'user_metion_screen_name')
-  
-  n_cores = detectCores()
-  cl <- makeCluster(floor(n_cores / 2))
-  registerDoParallel(cl)
-  edges_all<- foreach ( i =1 :nbreaks, .combine = rbind) %dopar% {
-    idx_start <- interval*(i-1)+1; idx_end = interval*i
-    if (i == nbreaks){ idx_end = length(files) }
-    dat <- NULL
-    for(j in idx_start:idx_end){
-      filepath <- paste0(data_folder, files[j])
-      dat <- c(dat, readLines(filepath))
-    }
-    dat1 <- do.call("rbind", lapply(dat, function(x) unlist(strsplit(x, '\t')))  )
-    dat2 <- data.frame(dat1, stringsAsFactors = F)
-    colnames(dat2) <- headers
-    edges <- data.frame( list(user_id_str = dat2$user_id_str,  status_id_str = dat2$retweet_id_str), stringsAsFactors = F)
-    return (edges)
-  }
-  stopCluster(cl)
-  return(edges_all)
-}
-
-data_folder = "/p/stat/songwang/trump.retweet.long-nov12/"
-edgeList2 <- edgeList_fromHadoop(data_folder)
-write.csv(edgeList2, file = "../data/trump_tweets/edgelist_fromHadoop.csv")
+tweets <- read.csv("../data/trump_tweets/followers_tweets/tweets-Trump.csv",
+                   colClasses=c("character","character"), stringsAsFactors = F)
+tweets <- tweets[tweets$created_at < "2016-11-09 00:00:00", ]
+tweets <- tweets[tweets$created_at >"2015-01-01 00:00:00", ] 
+tweets$id_str <- as.character(tweets$id_str)  #2437 tweeters
+tweets <- tweets[tweets$id_str %in% unique(el$to_status_id), ]  #2419
+dim(tweets)
 
 
+users<- read.csv("../data/trump_tweets/followers_tweets/followersAll_Trump_new.csv", 
+                 colClasses=c("character"), stringsAsFactors = F)
+users$id_str <- as.character(users$id_str)
+users <- users[users$id_str %in% el$from_user_id, ]
+dim(users)
 
-tweets_ids <- unique(edgeList2$status_id_str)
-getStatuses(tweets_ids, "../data/trump_tweets/tweets_fromHadoop.json",oauth_folder ="./credentials/credential_mixed/")
-data.df <- jsonlite::fromJSON(data.json, simplifyDataFrame= T)
-data.str <- readLines("../data/trump_tweets/tweets_fromHadoop.json")
-data.json <- paste0('[', paste0(data.str, collapse= ",") , ']')
-data.df <- jsonlite::fromJSON(data.json, simplifyDataFrame= T)
-data.df <- simplifyTwitterDF(data.df)
-data.df <- data.df[which(data.df$user_id_str == "25073877"),]   #2168 /2425
-write.csv(data.df, file = "../data/trump_tweets/tweets_fromHadoop.csv",row.names = F)  #11305/13560/14129
+# el <- el[el$from_user_id%in% users$id_str, ]
+# el <- el[el$to_status_id %in% tweets$id_str, ]
+# tweets <- tweets[tweets$id_str %in% el$to_status_id, ]
+# users <- users[users$id_str %in% el$from_user_id, ]
 
-
-
-users_ids <- unique(edgesList2$user_id_str)
-users.info <- getUsersBatch(ids = users_ids,  output = "../data/trump_tweets/tweets_fromHadoop.json", 
-              verbose = T, oauth_folder ="./credentials/credential_mixed/", random = F)
-write.csv(users.info, file = "../data/trump_tweets/users_fromHadoop.csv",row.names = F)  #13560/14129   [1] 0.9597282
-
-
-
-
-
-##############################################################################################################################
-##################save as RData.file
-##############################################################################################################################
-
-
-edgelist_file <- "../data/trump_tweets/edgeList_fromFollowers.csv"
-tweets_file <- "../data/trump_tweets/tweets_fromFollowers.csv"
-users_file <- "../data/followers_Network/followers_info_status.csv"
-Rdata_file <- "../data/trump_tweets/retweet_fromFollowers.RData"
-
-
-edgelist_file <- "../data/trump_tweets/edgelist_fromHadoop.csv"
-tweets_file <- "../data/trump_tweets/tweets_fromHadoop.csv"
-users_file <- "../data/trump_tweets/users_fromHadoop.csv"
-Rdata_file <- "../data/trump_tweets/retweet_fromHadoop.RData"
-
-edgelist <- read.csv(edgelist_file, stringsAsFactors = F)
-edgelist$user_id_str <- as.character(edgelist$user_id_str);
-edgelist$status_id_str <- as.character(edgelist$status_id_str); 
-dim(edgelist); length(unique(edgelist$user_id_str)); length(unique(edgelist$status_id_str))
-
-tweets <- read.csv(tweets_file, stringsAsFactors = F) 
-tweets$id_str <- as.character(tweets$id_str)  ;dim(tweets)
-tweets$created_at <- formatTwDate(tweets$created_at)
-tweets<- tweets[tweets$created_at < as.POSIXct('2016-11-08 21:00:00'),]; dim(tweets)
-tweets$source <- gsub( ".* rel=\"nofollow\">(.*)</a>", "\\1", tweets$source)
-tweets$text <- gsub("[\n\t\r]", " ", tweets$text)
-
-users <- read.csv(users_file, stringsAsFactors = F)
-users$id_str <- as.character(users$id_str) ; dim(users)
-tmp <- match(edgelist$status_id_str, tweets$id_str); sum(is.na(tmp))
-edgelist <- edgelist[!is.na(tmp),]; dim(edgelist); length(unique(edgelist$status_id_str))
-
-tmp <- match(edgelist$user_id_str, users$id_str); sum(is.na(tmp))
-edgelist <- edgelist[!is.na(tmp),];dim(edgelist); length(unique(edgelist$status_id_str))
-
-tmp <- match(unique(edgelist$user_id_str), users$id_str); users <- users[tmp[!is.na(tmp)],]; dim(users)   
-tmp <- match(unique(edgelist$status_id_str), tweets$id_str); tweets<- tweets[tmp[!is.na(tmp)],];dim(tweets) 
-
-
-save(edgelist, users, tweets, file =Rdata_file)
-
-
+save(el, tweets, users, file ="../data/trump_tweets/followers_tweets/edgelistAll.RData")
+# el: 3741 tweets, 8672 followers, some of tweets/followers cannot be downloaded
+# tweets 2417, users, 7897
 
 
 

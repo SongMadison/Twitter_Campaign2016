@@ -13,7 +13,7 @@ source("function.R")
 
 ######
 # followers info
-ID_SNs <- fread("../data/followers_Network/id_counts.csv", 
+ID_SNs <- fread("../data/followers_info/id_counts.csv", 
                 colClasses = c("integer", "integer", "character","character","character") )
 setkey(ID_SNs, screen_name)
 # V1 followers_count                    id_str protected     screen_name
@@ -29,57 +29,59 @@ tmp <- tmp[!is.na(tmp)]
 ID_SNs <- ID_SNs[tmp, mult ="first"] 
 # 5138802
 
-# index, followers_count, id_str, protected, screen_name
-# friends info
+# index, followers_count, id_str, protected, screen_name # 367407 friends
 friends_ID_SN <- fread('../data/followers_Network/friends_ID_SN_nonrandom.csv',
                        colClasses = c("integer", "integer", "character","character"))
+setkey(friends_ID_SN, screen_name)  
+dim(friends_ID_SN)
 
-setkey(friends_ID_SN, screen_name)
-#index, followers_count    id_str     screen_name
-
-
-  
+followers_info <- read.csv("../data/followers_info/jsons/sn_descriptions.csv", 
+                           colClasses = c("character"), stringsAsFactors = F)
 
 
 
 ######
 edgelist = fread("../data/followers_Network/edgelist-non-random100K.csv",
-                 colClasses = c( "character","character") )
+                 colClasses = c( "character","character") )  #10205589
 followers = unique(edgelist$followers_id_str)
 friends = unique(edgelist$friends_id_str)
+length(followers); length(friends)
 
 id1 <- match(followers, ID_SNs$id_str)
 print(paste("#friends info unavaiable: ", sum(is.na(id1))))
 name1 <- ID_SNs$screen_name[id1[!is.na(id1)]]
+
 id2 <- match(friends, friends_ID_SN$id_str)
 print(paste("#followers info unavaiable: ", sum(is.na(id2))))
-name2 <- friends_ID_SN$screen_name[id2[!is.na(id2)]] #those info are available
+name2 <- friends_ID_SN$screen_name[id2[!is.na(id2)]]; length(name2)
 
-name2 <- name2[which(friends_ID_SN[name2]$followers_count>=1000)]
+name2 <- name2[which(friends_ID_SN[name2]$followers_count>=1000)] ##remove some fiends 
+
 i_set = match(edgelist$followers_id_str, ID_SNs[name1]$id_str)
 j_set = match(edgelist$friends_id_str, friends_ID_SN[name2]$id_str)
 idx <- unique(which(is.na(i_set)+is.na(j_set)>0))
 
-i_set <- i_set[-idx]; j_set <- j_set[-idx]
+i_set <- i_set[-idx]; j_set <- j_set[-idx];  length(i_set); length(j_set) #10096079
 name1 <- name1[1:max(i_set)]; name2 <- name2[1: max(j_set)]
 A <- sparseMatrix(i = i_set , j = j_set, dimnames = list(name1, name2))
 dim(A)  #75938 365684
+
+
+
 
 # library(smappR)
 # friends_ID_SN <- getUsersBatch(screen_name = name2, 
 #             output = "../data/followers_Network/friends_non-random2.json",
 #                     oauth_folder = "./credentials/credential_mixed2/")
 # #
-count2 <- friends_ID_SN[name2,followers_count]
+count2 <- friends_ID_SN[name2,followers_count]; 
 count1 <- ID_SNs[name1,friends_count] 
 
 save(A, count2, file = "../data/followers_Network/data.RData")
 
 
 
-
-
-
+rm(list =ls())
 load("../data/followers_Network/data.RData")
 library(igraph)
 library(Matrix)
@@ -88,19 +90,27 @@ library(ggplot2)
 library(data.table)
 source("function.R")
 
+
 name1 <- rownames(A)
-name2 <- colnames(A)
+name2 <- colnames(A);names(count2) <- name2
 deg_row = rowSums(A); deg_col = colSums(A)
 
 summary(count2)
 summary(deg_col)
 
 #
-hist(log(1+deg_row), breaks = 100)
-hist(log(1+deg_col), breaks = 100)
-#hist(log(1+count1), breaks = 100)
-hist(log(1+count2), breaks = 100)
+par(mfrow =c(2,2))
+hist(log(1+deg_row), breaks = 100, main ="distribution of log (sample row degree)")
+hist(log(1+deg_col), breaks = 100 , main ="distribution of log (sample col degree)")
+#hist(log(1+count1), breaks = 100, main ="distribution of log (population row degree)")
+hist(log(1+count2), breaks = 100, main ="distribution of log (population row degree)")
+par(mfrow =c(1,1))
 
+#some frequent followers (population v.s sample)
+count2[which(count2 > quantile(count2, 0.9999))]
+deg_col[which(deg_col > quantile(deg_col, 0.9999))]
+ratio <- deg_col/count2
+ratio[which(ratio > quantile(ratio, 0.9999))]*(122/0.76)  #76k out 12.2
 #id.trump = which.max(deg_col)
 #A <- A[ ,-id.trump]
 
@@ -174,8 +184,11 @@ result$description <- gsub("[\t\n\r]", " ", result$description)
 result1 <- result[,c(1,8,13,14,2,4,3,5,7,9,10,11,12,15,16:18)]
 write.csv(result, file ="./1209/following/k50/distinctive_friends.csv", row.names = F)
 
-sn_cluster <- data.frame(cbind(screenNames = rownames(A), cluster = km_row$cluster))
-write.csv(sn_cluster, file = "./1209/following/k50/sn_cluster_simplified.csv", row.names = F)
+
+sn_cluster <- data.frame(cbind( screenNames = rownames(A), cluster = km_row$cluster))
+ids <- ID_SNs$id_str[match(sn_cluster$screenNames,ID_SNs$screen_name)]
+sn_cluster <- cbind(id_str = ids, sn_cluster)
+write.csv(sn_cluster, file = "./1209/following/k50/id_sn_cluster.csv", row.names = F)
 
 #  2-dimension visualization:
 ## bloomplot 

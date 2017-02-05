@@ -191,4 +191,4 @@ wordcloud(words = terms, freq = word_total[i,],
 
 
 
-load('data4')
+

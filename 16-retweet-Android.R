@@ -1,9 +1,4 @@
 
-
-###  retweet/reply network from 76k followers and trump's tweets, from 2015-01-01 - 2016-11-08(included)
-# each followers has 1200 recent twitters of each followers, due to time limit, 
-#   also we the the range of time interval
-
 rm(list =ls())
 source("Head_file.R")
 source("function.R")
@@ -11,8 +6,12 @@ set.seed(123)
 load("../data/trump_tweets/followers_tweets/edgelistAll.RData")
 
 tweets$created_at <- as.POSIXct(tweets$created_at)
-tweets$source <- gsub('.* rel="nofollow">(.*)</a>',replacement = '\\1', tweets$source)
+tweets$source <- gsub('.* rel="nofollow">(.*)</a>',replacement = '\\1', tweets$source) 
 
+tweets <- tweets[tweets$source == 'Twitter for Android',] #1422
+tweets <- tweets[-grep('^"', tweets$text),] # eliminate some starts with \", ends with 1034
+idx <- which(!is.na(match(el$to_status_id, tweets$id_str)))
+el <- el[idx,] #59904 -> 21933
 # source("function.R")
 # source("16-1.R")
 # source("16-2.R")
@@ -21,7 +20,7 @@ tweets$source <- gsub('.* rel="nofollow">(.*)</a>',replacement = '\\1', tweets$s
 
 
 u2t <- graph_component(el, connected = F)  #bipartiete graph, followers/users to tweets
-A <- u2t
+A <- u2t ; dim(A)
 user_ids <- rownames(A); tweets_ids <- colnames(A)   # twitts_ids
 nr <- dim(A)[1]; nc <- dim(A)[2]
 Dr <- rowSums(A); Dc <- colSums(A)
@@ -39,7 +38,13 @@ X1 <- rbind(U1, V1);
 km1 <- kmeans(X1, k , iter.max = 100, nstart = 50);
 km1 <- kmeans(X1, centers = km1$centers[order(km1$centers[,2]),], iter.max = 50)
 bip.result$row <- km1$cluster[1:nr]; bip.result$col <- km1$cluster[(nr+1):(nr+nc)]
+# bip.result$A <- A
+# bip.result$L <- L
+# bip.result$svd <- irlba_L
+# bip.result$km <- km1
+
 #write.csv(data.frame(id_str = user_ids, cluster = bip.result$row),file = "./0102/retweeting/id_sn_cluster_bip.csv")
+
 
 
 
@@ -55,7 +60,7 @@ At <- t(At); At <- as(At, "dgCMatrix"); #A@x <- rep(1, length(A@x))
 colnames(At) <- terms
 At <- At[, -grep("http", colnames(At))] ; dim(At)
 idx1<- grep("^#", colnames(At));
-idx2 <- grep(' ', colnames(At)[idx1]); if (length(idx2) > 0)idx1 <- idx1[-idx2]
+idx2 <- grep(' ', colnames(At)[idx1]); if (length(idx2) > 0) idx1 <- idx1[-idx2]
 At[,idx1] <- At[,idx1] *2 ## double the effects of hashtag
 
 Dr <- rowSums(At) ; Dc <- colSums(At)
@@ -72,6 +77,13 @@ km2 <- kmeans(X2, k, nstart = 100, iter.max = 50);
 km2 <- kmeans(X2, centers = km2$centers[order(km2$centers[,1]),], iter.max = 50)
 
 clustering <-  data.frame(id_str = tweets$id_str, cluster = km2$cluster)
+
+# text.result <- list()
+# text.result$A <- A
+# text.result$L <- L
+# text.result$svd <- ir
+# bip.result$svd <- irlba_L
+# bip.result$km <- km1
 #write.csv(clustering, file = "./0102/tweets_text/id_cluster.csv", row.names = F)
 
 clustered_tweets_by_text <- NULL
@@ -84,11 +96,14 @@ for( i in 1:k){
                                                 tweets_i[order(-scores),])  )                         
 }
 
+Z <- membershipM(km2$cluster)
+centers<-  Diagonal(k,colSums(Z)^(-1)) %*% t(Z) %*% At # centers in the original space
+terms <- colnames(At); mean_vec <- colMeans(At)
+selected_words <- matrix("", 20, k)
+for ( i in 1:k){
+  diff = sqrt(centers[i,]) - sqrt(mean_vec)
+  selected_words[,i] = terms[order(-diff)[1:20]]
+  selected_words[1:10,]
+}
 
-save(list = ls(), file = "./0102/result.RData")
-
-
-
-
-
-
+save(list = ls(), file = "./0102/result_Android.RData")

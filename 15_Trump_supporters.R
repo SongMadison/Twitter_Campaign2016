@@ -19,15 +19,15 @@ km_row$size
 keyfriends
 davidduke <- numeric(20)
 for (i in 1:20){
-	davidduke[i] <- sum(A[which(km_row$cluster ==i, 'DrDavidDuke'])
+	davidduke[i] <- sum(A[which(km_row$cluster ==i), 'DrDavidDuke'])
 }
 
-
+daviddukekm_row$size
 
 
 #move on to focus on the Trump strong supporters
 #based on my oberservation, cluster 1,3, 7, could change or include some more
-ids <- which((( km_row$cluster==1)+ (km_row$cluster ==4) + (km_row$cluster==8)) >= 1)
+ids <- which((( km_row$cluster==1)+ (km_row$cluster ==3) + (km_row$cluster==8)) >= 1)
 A1 <- A[ids,]
 
 deg1_row = rowSums(A1)
@@ -99,7 +99,7 @@ setkey(clustering, screen_names)
 keyfriends_info <- data.table(keyfriends_info)
 setkey(keyfriends_info, screen_name)
 result <- cbind(clustering,keyfriends_info[clustering$screen_name])
-write.csv(result, file ="../data/followers_Network/result_trump_k10_n.csv")
+#write.csv(result, file ="../data/followers_Network/result_trump_k10_n.csv")
 
 # 2-dimensional visualization:
 set.seed(12)

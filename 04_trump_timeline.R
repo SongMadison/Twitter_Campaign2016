@@ -39,3 +39,4 @@ unique(df_trump_timeline$replyToSID) # 1 others' twitte."766741570024534016" and
 unique(df_trump_timeline$replyToUID) # others:"44945327"  "357606935", and NA
 
 
+
