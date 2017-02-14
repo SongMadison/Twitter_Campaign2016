@@ -13,7 +13,7 @@ source("function.R")
 
 ######
 # followers info
-ID_SNs <- fread("../data/followers_info/id_counts.csv", 
+ID_SNs <- fread("../data/followers_Network//id_counts.csv", 
                 colClasses = c("integer", "integer", "character","character","character") )
 setkey(ID_SNs, screen_name)
 # V1 followers_count                    id_str protected     screen_name
@@ -74,9 +74,18 @@ dim(A)  #75938 365684
 #             output = "../data/followers_Network/friends_non-random2.json",
 #                     oauth_folder = "./credentials/credential_mixed2/")
 # #
-count2 <- friends_ID_SN[name2,followers_count]; 
-count1 <- ID_SNs[name1,friends_count] 
-
+# do i have more features ? # they are in folder ../data/followers_Network/friends_non-random2.json 
+#364459 lines in json file
+# idx, user_id_str, screen_name, follower_count
+# friends_ID_SN <- fread('../data/followers_Network/friends_ID_SN_nonrandom.csv',
+#                        colClasses = c("integer", "integer", "character","character")) #367407
+# setkey(friends_ID_SN, screen_name)
+# count2 <- friends_ID_SN[name2,followers_count]
+friends_info <- fread('../data/followers_Network/friends_nonrandom_full_info.csv'
+                         , colClasses = c("character")) ## 44 columns
+setkey(friends_info, screen_name)
+friends_info$followers_count <- as.integer(friends_info$followers_count)
+count2 <- friends_info[name2,followers_count]
 save(A, count2, file = "../data/followers_Network/data.RData")
 
 
@@ -120,17 +129,15 @@ m = dim(A)[2]
 
 ## using population col deg + inner product
 A1 <- A %*% Diagonal(m, (deg_col/ count2) * log( (n+1)/(deg_col+1) )  ) # min(count2)>=1000, can be ommitted
-norm1 <- rowSums(A1 *A1);     norm1 <- sqrt(norm1 + 1e-4)                          #apply cannot work, saying too large
-
+norm1 <- rowSums(A1 *A1);     norm1 <- sqrt(norm1 + 1e-4)       #apply cannot work, saying too large
 L =  Diagonal(n, norm1^(-0.5)) %*% A1
-svd_L <- irlba(L, nv = 50)
+svd_L <- irlba(L, nv = 50+2)   # 5 mins
 
 
 
 
 
 plot(svd_L$d)
-
 
 #normalization of rows
 k = 50 # or 7
@@ -142,7 +149,8 @@ rowN <- rowSums(U*U); rowN <- sqrt(rowN +1e-6)
 U1 <- Diagonal(length(rowN), rowN^(-1))%*%U
 set.seed(123)
 km_row2 = kmeans(U1, k, nstart = 100, iter.max =50)
-
+# number the cluster, in the order of 2nd eigenvector
+# km_row3 = kmeans(U1, centers = km_row2$centers[order(km_row2$centers[,2]),], iter.max = 30)  
 
 
 km_row = km_row2
@@ -165,96 +173,75 @@ for(i in 1:k){
 }
 
 
-
-library(smappR)
-keyfriends_info <- getUsersBatch( 
-  screen_names = as.vector(keyfriends),                                
-  include_entities = T, 
-  oauth_folder = "./credentials/credential_mixed/")
-
-
+keyfriends_info <- friends_info[as.vector(keyfriends)] 
+keyfriends_info <- keyfriends_info[,c('id_str', 'screen_name','created_at', 'description','lang','location','time_zone',
+                           'name','followers_count','friends_count', 'favourites_count','statuses_count','listed_count','protected','verified',
+                           'geo_enabled' ), 
+                         names(keyfriends_info), with = FALSE]
 clustering <- cbind(as.vector(keyfriends),rep(1:k, each = top),
                   rep(km_row$size, each = top),  as.vector(scores))
 clustering <- data.frame(clustering, stringsAsFactors = F)
-names(clustering) <- c("screen_names","clusters","Sizes","scores")
-keyfriends_info <- data.table(keyfriends_info)
-setkey(keyfriends_info, screen_name)  #order by screen_name, fast match
-result <- cbind(clustering,keyfriends_info[clustering$screen_name])
+names(clustering) <- c("screen_name","clusters","Sizes","scores")
+
+result <- cbind(clustering[,2:4],keyfriends_info)
 result$description <- gsub("[\t\n\r]", " ", result$description)
-result1 <- result[,c(1,8,13,14,2,4,3,5,7,9,10,11,12,15,16:18)]
 write.csv(result, file ="./1209/following/k50/distinctive_friends.csv", row.names = F)
-
-
 sn_cluster <- data.frame(cbind( screenNames = rownames(A), cluster = km_row$cluster))
 ids <- ID_SNs$id_str[match(sn_cluster$screenNames,ID_SNs$screen_name)]
 sn_cluster <- cbind(id_str = ids, sn_cluster)
 write.csv(sn_cluster, file = "./1209/following/k50/id_sn_cluster.csv", row.names = F)
 
-#  2-dimension visualization:
-## bloomplot 
+
+
+#one way - to download directly, there is time conflicts
+# library(smappR)
+# keyfriends_info <- getUsersBatch( 
+#   screen_names = as.vector(keyfriends),                                
+#   include_entities = T, 
+#   oauth_folder = "./credentials/credential_mixed2/")
+# 
+# 
+# clustering <- cbind(as.vector(keyfriends),rep(1:k, each =20),
+#                     rep(km_row$size, each =20),  as.vector(scores))
+# clustering <- data.table(clustering)
+# names(clustering) <- c("screen_names","clusters","Sizes","scores")
+# setkey(clustering, screen_names)
+# keyfriends_info <- data.table(keyfriends_info)
+# setkey(keyfriends_info, screen_name)
+# result <- cbind(clustering,keyfriends_info[clustering$screen_name])
+# write.csv(result, file ="../data/followers_Network/result_50.csv")
+# 
+
+
+
+
+## bloomplot  -- cluster level
 Z <- matrix(0, n, k )
 for ( i in 1:k){
   Z[which(km_row$cluster == i), i ] <- 1
 }
 NZ <- Z %*% Diagonal(k, colSums(Z)^(-1))
-
-B1 <- t(NZ) %*% A1 %*%t(A1) %*% NZ; image(B1)
+B1 <- t(NZ) %*% A %*%t(A1) %*% NZ; image(B1) ## weighted A
 B2 <- t(NZ) %*% L %*%t(L) %*% NZ; image(B2)
 
 
 pdf("./1209/following/k50/blockB.pdf", height = 7, width = 8)
-ggplot(data = melt(as.matrix(sqrt(B1))), aes(x=Var1, y =Var2, fill = value))+
+ggplot(data = melt(as.matrix(sqrt(B1))), aes(x=X1, y =X2, fill = value))+
   geom_tile() + labs(title= expression(sqrt(B1)))+xlab("row")+ylab("col") 
-ggplot(data = melt(as.matrix(sqrt(B2))), aes(x=Var1, y =Var2, fill = value))+
+ggplot(data = melt(as.matrix(sqrt(B2))), aes(x=X1, y =X2, fill = value))+
   geom_tile() + labs(title= expression(sqrt(B2)))+xlab("row")+ylab("col") 
 dev.off()
-colSums(Z);colSums(Y)
-
-
-confMatrix <- t(Z1) %*% Y
-pdf(file = "./1209/following/k50/blockB.pdf", onefile = T, width = 8, height = 7)
-library(ggplot2)
-confMatrix1 <- Diagonal(dim(Z1)[2], rowSums(confMatrix)^(-1))%*% confMatrix;
-ggplot(melt(as.matrix(confMatrix1)), aes(x=Var1, y= Var2, fill=value)) + 
-  geom_tile()+ labs(title = "confMat1") + xlab("row") + ylab("col")
-confMatrix2 <- confMatrix %*% Diagonal(dim(Y)[2], colSums(confMatrix)^(-1));
-ggplot(melt(as.matrix(confMatrix2)),aes(x=Var1, y=Var2, fill=value)) + 
-  geom_tile()+ labs(title = "confMat2") + xlab("row") + ylab("col")
-confMatrix3 <- Diagonal(dim(Z1)[2], rowSums(confMatrix)^(-1))%*% confMatrix %*% Diagonal(dim(Y)[2], colSums(confMatrix)^(-1))
-ggplot(melt(as.matrix(confMatrix3)),aes(x=Var1, y=Var2, fill=value)) + 
-  geom_tile()+ labs(title = "confMat3") + xlab("row") + ylab("col") #+scale_fill_gradient(low="green", high="red")
-dev.off()
-NMI(confMatrix)
+colSums(Z);
 
 
 
-
-
-
-
-
+#  2-dimension visualization:
 set.seed(12)
 samp1 <- sample(1:nrow(U), 2000)
 pdf("../data/followers_Network/LL3_k7_n.pdf")
 plot(U1[samp1,2],U1[samp1,3], pch =km_row$cluster[samp1],  col = as.factor(km_row$cluster[samp1]))
 legend("topright", legend = paste0(1:k,"-",km_row$size), pch=1:k, col =as.factor(1:k) )
 dev.off()
-
-
-
-
-weight = (deg_col/ count2)
-A1 <- A %*% Diagonal(m, weight)
-l1 <- rowSums(A1*A1); l1 <- sqrt(l1+1e-6); A2 <- Diagonal(n, l1^(-1))
-nnzeros <- colSums(A>0)
-A3 <- A2 * A1 * log( (n+1)/(nnzeros+1) )   # min(count2)>=1000, can be ommitted
-
-
-L4 <- A %*% Diagonal(m, sqrt(deg_col/ count2) * log( (n+1)/(deg_col+1) )  ) # min(count2)>=1000, can be ommitted
-norm1 <- rowSums(L4 *L4)                               #apply cannot work, saying too large
-norm1 <- norm1 + 0.1*mean(norm1) 
-L4 =  Diagonal(n, norm1^(-0.5)) %*% L4
-svd_L4 <- irlba(L4, nv = 50)
 
 
 

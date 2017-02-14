@@ -1,4 +1,5 @@
 ## parallel processing the json, to get csv files
+# every 100 users, as a .csv file
 
 
 rm(list =ls())

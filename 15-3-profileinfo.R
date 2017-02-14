@@ -30,50 +30,7 @@ followers_info <- fread("../data/followers_Network/followers_info.csv",
 ## decription analysis
 
 
-## top200 twitters from each follower
-output_folder <- "../data/followers_Network/followers_timeline11/"
-Err_users <- NULL
-n = length(name1)
-for (i in 45001:n){
-  #i = 1
-  file_name <- paste0(output_folder, name1[i],".json")
-  tryCatch(
-    getTimeline(filename = file_name, n =1200, screen_name = name1[i],
-                oauth_folder = "./credentials/credential_mixed1",
-                sleep = 0.5, verbose = TRUE), 
-    error = function(e){
-      Err_users <- c(Err_users, name1[i])
-      message( paste(name1[i], "error occurred"))
-    }
-  )
-  Err_users <- cbind(Err_users,name1[i])
-  print(paste("XXXXXX -- i = ", i ,'\n'))   
-}
-
-
-for (i in 1:45000){
-  #i = 1
-  file_name <- paste0(output_folder, name1[i],".json")
-  tryCatch(
-    getTimeline(filename = file_name, n =1200, screen_name = name1[i],
-                oauth_folder = "./credentials/credential_mixed",
-                sleep = 0.5, verbose = TRUE), 
-    error = function(e){
-      Err_users <- c(Err_users, name1[i])
-      message( paste(name1[i], "error occurred"))
-    }
-  )
-  Err_users <- cbind(Err_users,name1[i])
-  print(paste("XXXXXX -- i = ", i ,'\n'))   
-}
-
-
-
-
-
-
-
-text <- followers$'description' # from the downloading file
+text <- followers_info$'description' # from the downloading file
 #text <- paste( followers$'description', followers$'status.text')  #downloaded around Nov 15
 
 #toy.data <- read.csv("toy.csv", stringsAsFactors = F)
@@ -96,32 +53,44 @@ print ( sprintf( "after initial cleaning: %s words remains in %s docuemnts",
                  dim(tdm)[1], dim(tdm)[2], '\n') )  
 
 
-A = spMatrix(i = tdm$i, j = tdm$j, x = tdm$v, nrow = tdm$nrow, ncol  = tdm$ncol)         # frequency count
-rownames(A)  = tdm$dimnames$Terms
+B = spMatrix(i = tdm$i, j = tdm$j, x = tdm$v, nrow = tdm$nrow, ncol  = tdm$ncol)         # frequency count
+rownames(B)  = tdm$dimnames$Terms
 
 # remove 's' 
 # for word ends with 's', whether the word without 's' is in terms. 
 # like designs is in, check the posiition of design, all the locations of design alike are returned
-# some are NA, means like "boss" exists, but "bos" not.
-idx <- match( gsub(pattern = '(.*)s$', replacement = '\\1', 
-                   x= terms[grep('s$',terms)]), terms)
-idx1 <- match(paste0(terms[idx[!is.na(idx)]],'s'), terms)    # location of plural terms
+# some are NA, means like "boss" exi
+#sts, but "bos" not.
+idx <- match( gsub(pattern = '(.*)s$', replacement = '\\1', x= terms[grep('s$',terms)]), terms)
+idx1 <- match(paste0(terms[idx[!is.na(idx)]],'s'),terms)    # location of plural terms
 idx2 <- match(terms[idx[!is.na(idx)]], terms)   #location of single terms with out s
-A[idx2,] <- A[idx1,]+A[idx2,]
-terms <- terms[-idx1];  A<- A[terms,]; #update terms, tdm
+B[idx1,] <- B[idx1,]+B[idx2,]
+terms <- terms[-idx1];  B<- B[terms,]; #update terms, tdm
 
 # remvoe 'ed'
 idx <- match( gsub(pattern = '(.*)ed$', replacement = '\\1', x= terms[grep('ed$',terms)]), terms)
 idx1 <- match(paste0(terms[idx[!is.na(idx)]],'ed'),terms)
 idx2 <- match(terms[idx[!is.na(idx)]], terms)
-A[idx2,] <- A[idx1,]+A[idx2,]
-terms <- terms[-idx1];  A<- A[terms,]; #update terms, tdm
+B[idx1,] <- B[idx1,]+B[idx2,]
+terms <- terms[-idx1];  B<- B[terms,]; #update terms, tdm
 print (sprintf( "after combining 's','ed' cleaning: %s words remains in %s docuemnts",
-                dim(A)[1], dim(A)[2], '\n') )
+                dim(B)[1], dim(B)[2], '\n') )
 
 
 ## keep words that appears in less than 10 document
-rownames(A)  = terms
-kw = (A>0)+0  # converte counts in term document matrix to  {0,1}
-A1 = A[rowSums(kw)>=5,]   
-A1 <- t(A1)
+## keep words that appears in less than 10 document
+rownames(B)  = terms
+kw = (B>0)+0  # converte counts in term document matrix to  {0,1}
+B1 = B[rowSums(kw)>=10,]   
+B1 <- t(B1)
+
+load('data4.RData')
+for(i in 1:k){
+  Z[which(km_row$cluster == i), i] <-1  
+}
+words_by_cluster <- t(Z)%*%B1
+terms <- colnames(B1)
+i = 1
+wordcloud(words = terms, freq = word_total[i,], 
+          min.freq = quantile( word_total[i,],0.98), random.order = F)
+

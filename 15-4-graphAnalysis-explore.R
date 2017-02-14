@@ -25,7 +25,7 @@ setkey(ID_SNs, screen_name)
 tmp <- unique(ID_SNs$screen_name)
 tmp <- tmp[!is.na(tmp)]
 ID_SNs <- ID_SNs[tmp, mult ="first"] 
-# 5138802
+nrow(ID_SNs)# 5138802
 
 # index, followers_count, id_str, protected, screen_name
 # friends info
@@ -70,8 +70,11 @@ deg_row = rowSums(A); deg_col = colSums(A)
 #             output = "../data/followers_Network/friends_non-random2.json",
 #                     oauth_folder = "./credentials/credential_mixed2/")
 # #
+friends_ID_SN <- fread('../data/followers_Network/friends_ID_SN_nonrandom.csv',
+                       colClasses = c("integer", "integer", "character","character")) #367407
+setkey(friends_ID_SN, screen_name)
 count2 <- friends_ID_SN[name2,followers_count]
-count1 <- ID_SNs[name1,friends_count] 
+
 
 summary(count2)
 summary(deg_col)
@@ -80,14 +83,13 @@ summary(deg_col)
 hist(log(1+deg_row), breaks = 100)
 hist(log(1+deg_col), breaks = 100)
 hist(log(1+count2), breaks = 100)
-hist(log(1+count2), breaks = 100)
 
 #id.trump = which.max(deg_col)
 #A <- A[ ,-id.trump]
 
 n = dim(A)[1]
 m = dim(A)[2]
-
+n;m
 
 ## using population col deg + inner product
 L1 <- A %*% Diagonal(m, (count2+ mean(count2))^(-0.5))
@@ -99,7 +101,7 @@ svd_L <- irlba(L, nv = 50)
 
 
 
-## both population column and row degree
+## both population column and row degree, regularized spectral clustering
 L2 = Diagonal(n, (count1+10)^(-0.5)) %*% A %*% Diagonal(m, count2^(-0.5))
 L = L2
 svd_L <- irlba(L, nv = 50)
@@ -285,4 +287,39 @@ inner.prod.friends_screenN_X <- high.innerProd(unV, V, label_2)
 # write.csv(high.deg.friends_screenN_X, 
 #           file = "../data/followers_Network/7_kmX_inner_prod_friends_by_cluster_nonrandom.csv")
 
+
+
+weight = (deg_col/ count2)
+A1 <- A %*% Diagonal(m, weight)
+l1 <- rowSums(A1*A1); l1 <- sqrt(l1+1e-6); A2 <- Diagonal(n, l1^(-1))
+nnzeros <- colSums(A>0)
+A3 <- A2 * A1 * log( (n+1)/(nnzeros+1) )   # min(count2)>=1000, can be ommitted
+
+
+L4 <- A %*% Diagonal(m, sqrt(deg_col/ count2) * log( (n+1)/(deg_col+1) )  ) # min(count2)>=1000, can be ommitted
+norm1 <- rowSums(L4 *L4)                               #apply cannot work, saying too large
+norm1 <- norm1 + 0.1*mean(norm1) 
+L4 =  Diagonal(n, norm1^(-0.5)) %*% L4
+svd_L4 <- irlba(L4, nv = 50)
+
+
+
+
+
+
+# when tehre is anohte rclustering, compare the mathching
+confMatrix <- t(Z1) %*% Y
+pdf(file = "./1209/following/k50/blockB.pdf", onefile = T, width = 8, height = 7)
+library(ggplot2)
+confMatrix1 <- Diagonal(dim(Z1)[2], rowSums(confMatrix)^(-1))%*% confMatrix;
+ggplot(melt(as.matrix(confMatrix1)), aes(x=X1, y= X2, fill=value)) + 
+  geom_tile()+ labs(title = "confMat1") + xlab("row") + ylab("col")
+confMatrix2 <- confMatrix %*% Diagonal(dim(Y)[2], colSums(confMatrix)^(-1));
+ggplot(melt(as.matrix(confMatrix2)),aes(x=X1, y= X2, fill=value)) + 
+  geom_tile()+ labs(title = "confMat2") + xlab("row") + ylab("col")
+confMatrix3 <- Diagonal(dim(Z1)[2], rowSums(confMatrix)^(-1))%*% confMatrix %*% Diagonal(dim(Y)[2], colSums(confMatrix)^(-1))
+ggplot(melt(as.matrix(confMatrix3)),aes(x=X1, y= X2, fill=value)) + 
+  geom_tile()+ labs(title = "confMat3") + xlab("row") + ylab("col") #+scale_fill_gradient(low="green", high="red")
+dev.off()
+NMI(confMatrix)
 

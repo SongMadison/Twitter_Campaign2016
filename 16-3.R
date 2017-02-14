@@ -1,9 +1,12 @@
+
+#Goal:  construct the retweets network
+
+
+
+
 rm(list = ls ())
 source("Head_file.R")
 source("function.R")
-#construct the retweets network
-
-
 #template for parallel
 # library(doParallel)
 # # Find out how many cores are available (if you don't already know)

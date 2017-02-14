@@ -67,7 +67,7 @@ balloon.plot <- function(A, ylabel = NULL, xlabel = NULL , main = NULL){
   if (! is.null(xlabel)) {
     p1 <- p1 + theme(axis.text.x = element_text(angle = 45, hjust = 1))
   }
-  p1 + ggtitle(main) + scale_size(range = c(0.3,3))
+  p1 + ggtitle(main) + scale_size(range = c(0.5,3))
 }
 
 

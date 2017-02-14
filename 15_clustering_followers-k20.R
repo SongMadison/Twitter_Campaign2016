@@ -1,4 +1,5 @@
-
+##last modified Nov 20, 2016, recreated Feb 6, 2017
+## clustering_followers.R~
 
 rm(list = ls())
 
@@ -38,7 +39,7 @@ setkey(friends_ID_SN, screen_name)
 #index, followers_count    id_str     screen_name
 
 
-  
+
 
 
 
@@ -181,7 +182,7 @@ keyfriends_info <- getUsersBatch(
 
 
 clustering <- cbind(as.vector(keyfriends),rep(1:k, each =20),
-                  rep(km_row$size, each =20),  as.vector(scores))
+                    rep(km_row$size, each =20),  as.vector(scores))
 clustering <- data.table(clustering)
 names(clustering) <- c("screen_names","clusters","Sizes","scores")
 setkey(clustering, screen_names)
@@ -240,7 +241,7 @@ keyfriends_info <- getUsersBatch(
 
 
 clustering <- cbind(as.vector(keyfriends),rep(1:k, each =20),
-                  rep(km_row$size, each =20),  as.vector(scores))
+                    rep(km_row$size, each =20),  as.vector(scores))
 clustering <- data.table(clustering)
 names(clustering) <- c("screen_names","clusters","Sizes","scores")
 setkey(clustering, screen_names)
@@ -314,7 +315,7 @@ keyfriends_info <- getUsersBatch(
 
 
 clustering <- cbind(as.vector(keyfriends),rep(1:k, each =20),
-                  rep(km_row$size, each =20),  as.vector(scores))
+                    rep(km_row$size, each =20),  as.vector(scores))
 clustering <- data.table(clustering)
 names(clustering) <- c("screen_names","clusters","Sizes","scores")
 setkey(clustering, screen_names)
@@ -324,7 +325,7 @@ result <- cbind(clustering,keyfriends_info[clustering$screen_name])
 write.csv(result, file ="../data/followers_Network/result_L5_k20_n.csv")
 
 
- 
+
 #  2-dimension visualization:
 set.seed(12)
 samp1 <- sample(1:nrow(U), 2000)
@@ -371,7 +372,7 @@ keyfriends_info <- getUsersBatch(
 
 
 clustering <- cbind(as.vector(keyfriends),rep(1:k, each =20),
-                  rep(km_row$size, each =20),  as.vector(scores))
+                    rep(km_row$size, each =20),  as.vector(scores))
 clustering <- data.table(clustering)
 names(clustering) <- c("screen_names","clusters","Sizes","scores")
 setkey(clustering, screen_names)
@@ -381,7 +382,7 @@ result <- cbind(clustering,keyfriends_info[clustering$screen_name])
 write.csv(result, file ="../data/followers_Network/result_LL3_k20_n.csv")
 
 
- 
+
 #  2-dimension visualization:
 set.seed(12)
 pdf("../data/followers_Network/LL3_k20_n.pdf")
@@ -396,7 +397,7 @@ dev.off()
 ## bloomplot 
 Z <- matrix(0, n, k )
 for ( i in 1:k){
-   Z [which(km_row$cluster == i), i ] <- 1/sqrt(km_row$size[i])
+  Z [which(km_row$cluster == i), i ] <- 1/sqrt(km_row$size[i])
 }
 L1 <- t(Z)%*% L
 # similarity matrix

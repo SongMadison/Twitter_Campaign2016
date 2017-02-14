@@ -11,8 +11,8 @@ library(data.table)
 
 
 
-
 load('data4.RData')
+# first 20 clusters, then further partioning some clusters
 # This files includes everything on the 75K x366k data analysis
 
 #for example:
