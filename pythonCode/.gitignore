@@ -1,9 +1,12 @@
 .httr-oauth
 
+data/
+output/
+report/
+smappR/
+credentials/
+twitteR/
 */
-!pythonCode/
-!sqlCode/
-!bashCode/
 
 #Hisotry files
 .Rhistory

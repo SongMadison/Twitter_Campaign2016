@@ -40,6 +40,37 @@ myConvertJson <- function(json.data){
 }
 
 
+#download the friend list from a list of twitter screen names
+#SN1: list of screen names
+#my_oauth_folder: folder contains oauth objects
+#output :usually a .txt file.
+
+DownloadFriendlist <- function (SN1, my_oauth_folder, output){
+  conn = file(output, 'w') 
+  for ( i in 1:length(SN1)){  
+    #5607, 8840, 17599 00:01/ Oct18
+    #i =1 #sn ="DivinemLee"  #1300 friends
+    sn = SN1[i]
+    friendIDs <- tryCatch(
+      {
+        getFriends(screen_name=sn, oauth_folder = my_oauth_folder,
+                   cursor=-1, user_id=NULL, verbose=TRUE, sleep=1)
+      }, error = function(cond){
+        message(cond)
+        return (NA)
+      }, warning = function(cond){
+        message(cond)
+        return (NA)
+      }
+    )                    
+    write(paste(c(sn,friendIDs), collapse = ','), file  = output, append = TRUE, sep = '\n')
+    message("i--", i," users have been processed")
+  }
+  close(conn) # unitl close ,the data will be written. kind of dangerous if
+}
+
+
+
 
 
 balloon.plot <- function(A, ylabel = NULL, xlabel = NULL , main = NULL){

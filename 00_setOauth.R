@@ -28,4 +28,30 @@ if(!file.exists(paste0("./credentials/credential",k,"/my_oauth") )){
   #STOP!!!! for the browser to give you the verifier
 }
 ##save in the folder
-save(my_oauth, file = paste0("./credentials/credential",k,"/my_oauth"))
+if(! file.exists("./credentials/all")){
+  dir.create("./credentials/all")
+}
+save(my_oauth, file = paste0("./credentials/my_oauth",k))
+save(my_oauth, file = paste0("./credentials/credential37/my_oauth",k))
+
+getFollowers('swang282',oauth_folder = './credentials/credential37')
+
+files <- NULL
+files <- c(files, list.files("./credentials/credential_mixed/"))
+files <- c(files, list.files("./credentials/credential_mixed1/"))
+files <- c(files, list.files("./credentials/credential_mixed2/"))
+files <- c(files, list.files("./credentials/credential_mixed3/"))
+
+
+cred <- matrix("", 80, 4)
+for(f in list.files("./credentials/all/")){
+  load(paste0("./credentials/all/",f))
+  k <- as.numeric(gsub(pattern = "my_oauth(\\d.*)", replacement = '\\1', f))
+  cat(k,'\n')
+  item_k <- c(my_oauth$consumerKey, my_oauth$consumerSecret, my_oauth$oauthKey, my_oauth$oauthSecret)
+  cred[k,] <- item_k
+}
+
+
+
+

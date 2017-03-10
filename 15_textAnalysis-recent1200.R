@@ -92,8 +92,8 @@ if (length( grep(pattern = "https|http", tdm$dimnames$Terms))>0){
   tdm <- tdm [-grep(pattern = "https|http", tdm$dimnames$Terms), ]
 }
 A1 <- spMatrix(i = tdm$i, j = tdm$j, x = tdm$v, nrow = tdm$nrow, ncol  = tdm$ncol) 
-idx2 <- which(colSums(A1>0)<5 ); 
-tdm <- tdm[,-idx2]
+idx2 <- which(colSums(A1>0) < 5 ); 
+tdm <- tdm[,-idx2]  # 7286
 A1 <- A1[,-idx2]
 names_documents <- dat$user_screenName[-idx2]
 
@@ -135,12 +135,13 @@ A <- A2
 
 
 # based on the original clusters discovered by following relationship
+
 ## validate based on representative words
 clustering <- read.csv("./1209/following/k50/id_sn_cluster.csv", colClasses =  c("character","character","integer"), stringsAsFactors = F)
 k = max(clustering$cluster)
 Z1 <- membershipM(clustering$cluster)
 x <- match(colnames(A), clustering$screenNames)
-Z1 <- Z1[x[which(!is.na(x))], ]
+Z1 <- Z1[x[which(!is.na(x))], ];  
 csize <- colSums(Z1)
 NZ1 <- Z1 %*% Diagonal(k,csize^(-1))  # normalized Z1
 cluster_mean <- t(NZ1)%*%t(A)
@@ -152,7 +153,7 @@ for(i in 1:k){
   distinctive_words[,i] <- terms[order(-diff)[1:40]]
 }
 distinctive_words 
-write.csv(distinctive_words, file ="./0212/keywords_50.csv", row.names = F)
+write.csv(distinctive_words, file ="./0212/distinctive_words_50.csv", row.names = F)
 #write.csv(distinctive_words, file ="0212/L2/k50/keywords_50.csv", row.names = F)
 
 
@@ -170,7 +171,7 @@ tau1 <- mean(D1); tau2 <- mean(D2)
 L <- Diagonal(n, (D1+tau1)^(-1/2)) %*% A %*%Diagonal(m, (D2+tau2)^(-1/2))
 
 #L = A
-irlba_L <- irlba(L, nv =52)
+irlba_L <- irlba(L, nv =52) # 2mins
 d <- irlba_L$d
 U <- irlba_L$u %*% Diagonal(length(d), d^(1/2))
 V <- irlba_L$v %*% Diagonal(length(d), d^(1/2))
@@ -197,13 +198,13 @@ DB1 <- rowSums(B); DB2 <- colSums(B);WB <- Diagonal(k, DB1^(-1))%*%B %*% Diagona
 
 
 # evaluate the Block in-out
-#pdf("./0212/L2/A1_blockB_bip.pdf", height = 7, width = 8)
+pdf("./0212/L2/A1_blockB_bip.pdf", height = 7, width = 8)
 ggplot(data = melt(as.matrix(sqrt(WB))), aes(x=X1, y =X2, fill = value))+
   geom_tile() + labs(title= expression(sqrt(WB)))+xlab("row")+ylab("col") 
 ggplot(data = melt(as.matrix(sqrt(B))), aes(x=X1, y =X2, fill = value))+
   geom_tile() + labs(title= expression(sqrt(B)))+xlab("row")+ylab("col") 
 dev.off()
-#colSums(Z);colSums(Y)
+colSums(Z);colSums(Y)
 
 
 
@@ -212,7 +213,7 @@ confMatrix <- t(Z1) %*% Y
 NMI(confMatrix)
 write.csv(confMatrix, file = "./0212/following_text_50x50.csv")
 
-#pdf(file = "./0212/L2/k50/A1_confMat_50_50.pdf", onefile = T, width = 8, height = 7)
+pdf(file = "./0212/L2/k50/A1_confMat_50_50.pdf", onefile = T, width = 8, height = 7)
 library(ggplot2)
 confMatrix1 <- Diagonal(dim(Z1)[2], rowSums(confMatrix)^(-1))%*% confMatrix;
 ggplot(melt(as.matrix(confMatrix1)), aes(x=as.factor(X1), y= as.factor(X2), fill=value)) + 
@@ -223,7 +224,7 @@ ggplot(melt(as.matrix(confMatrix2)),aes(x=as.factor(X1), y= as.factor(X2), fill=
 confMatrix3 <- Diagonal(dim(Z1)[2], rowSums(confMatrix)^(-1))%*% confMatrix %*% Diagonal(dim(Y)[2], colSums(confMatrix)^(-1))
 ggplot(melt(as.matrix(confMatrix3)),aes(x=as.factor(X1), y= as.factor(X2), fill=value)) + 
   geom_tile()+ labs(title = "normalized by row and col") + xlab("following cluster") + ylab("text cluster") #+scale_fill_gradient(low="green", high="red")
-#dev.off()
+dev.off()
 
 
 
@@ -256,7 +257,7 @@ confMatrix_categorial <- t(Z1 %*% Zc) %*% (Y%*%Yc)
 rownames(confMatrix_categorial) <- name2; colnames(confMatrix_categorial) <- name1
 write.csv(confMatrix_categorial, file = "./0212/L2/k50/following_text_11x13.csv")
 
-#pdf(file = "./0212/L2/k50/confMat_categorial_10x10.pdf", onefile = T, width = 8, height = 7)
+pdf(file = "./0212/L2/k50/confMat_categorial_10x10.pdf", onefile = T, width = 8, height = 7)
 library(ggplot2)
 confMatrix1 <- Diagonal(dim(Z1)[2], rowSums(confMatrix)^(-1))%*% confMatrix;
 ggplot(melt(as.matrix(confMatrix1)), aes(x=as.factor(X1), y= as.factor(X2), fill=value)) + 
