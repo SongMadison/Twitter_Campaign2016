@@ -1,44 +1,67 @@
-myValidJSON <- function(data.json){
-  
-  #validate()
-  #Test if a string contains valid JSON. Characters vectors will be 
-  #collapsed into a single string
-  
-  validateIds <- unlist(lapply(data.json, function(x) validate(x)))
-  a <- table(validateIds) ##FALSE  TRUE :12 126686 
-  message(names(a), " : ", a)
-  data.json <- data.json[which(validateIds == TRUE)] 
-  return (data.json)
-}
 
-myToJSON <- function(data.json){
-  
-  #validate()
-  #Test if a string contains valid JSON. Characters vectors will be 
-  #collapsed into a single string
-  
+
+myToJSON <- function(data.json, verbose = T){
+  # input = data.json == text.file, contains collections of json string. 
+     # e.g user json, twitter json etc.
+  # output: type : a concatenated string
+  # functionality: remove the invalid json entires, concatenate all the individual jsons togehter
+     # the ouput string of form will be '[ {}, {}, {}]'
+
   validateIds <- unlist(lapply(data.json, function(x) validate(x)))
-  a <- table(validateIds) ##FALSE  TRUE :12 126686 
-  nitem = length(validateIds)
-  if (nitem >0){
-    message(names(a)[1]," : ", a[1], ", ", names(a)[2]," : ", a[2])
-  }else{
-    message("there is 0 observation")
+  a <- integer(2)
+  a[1] = sum(validateIds == TRUE); a[2] <- sum(validateIds = FALSE)
+  if (verbose){
+    message("valid json string", a[1], "invalid json string ", a[2])
   }
-  data.json <- data.json[which(validateIds == TRUE)] 
+  if (a[1] >0){
+    data.json <- data.json[which(validateIds == TRUE)] 
+  }else{
+    message("invalid json files, no vlid json strings")
+  }
+  return (data.json)
   return (sprintf("[%s]", paste(data.json, collapse = ',')))
 }
 
-# input:json.data is a list of {  }. having the following format.
-#  ouput: '[ {},{} ]'  -- add ',' and []
 
-myConvertJson <- function(json.data){
-  json.data <- paste0( json.data[1:(length(json.data)-1)], ",")
-  json.data[length(json.data)] <- paste0(json.data[length(json.data)], "]")
-  json.data[1] <- paste0("[",json.data[1])
-  return(json.data)
+processTweets <- function( data_folder, output_folder){
+  
+  if (!file.exists(output_folder)) { dir.create(output_folder)}
+  
+  files = list.files(data_folder)
+  interval = 50
+  nbreaks =  ceiling(length(files) / interval)
+  
+  for ( i in 1:nbreaks){
+    #i =1
+    data.str <- NULL
+    idx_set = interval * (i - 1) + (1:interval)
+    if (i == nbreaks) {
+      idx_set = (interval * (i - 1) + 1):length(files)
+    }
+    for (j in idx_set) {
+      filepath <-
+        paste0(data_folder, files[j]) #"./data/trump_followers_screen-names.json"#
+      data.str <- c(data.str, readLines(filepath))
+    }
+    idx <- unlist(lapply(data.str, validate))
+    data.json <-
+      paste0('[', paste0(data.str[idx], collapse = ","), ']')
+    
+    dat <- jsonlite::fromJSON(data.json, simplifyDataFrame = T)
+    data.df <- simplifyTwitterDF(dat)
+    #lst2 <- lapply(lst1, function(x) selected(x))
+    # lst3 <- lapply(lst2, function(x) as.data.frame(x))
+    # data.df <- do.call("rbind", lst3)
+    #data.df <- data.frame(do.call("rbind", lapply(lst2, function(x) as.data.frame(x)) ) )
+    i_str <-
+      paste0(paste0(rep('0', nchar(nbreaks) - nchar(i)), collapse = ""), i, collapse = "")
+    write.csv(data.df,
+              file = paste0(output_folder, i_str, ".csv"),
+              row.names = F)
+    message("i=", i, ', size =', nrow(data.df), "\n")
+  }
+  
 }
-
 
 #download the friend list from a list of twitter screen names
 #SN1: list of screen names
@@ -67,306 +90,6 @@ DownloadFriendlist <- function (SN1, my_oauth_folder, output){
     message("i--", i," users have been processed")
   }
   close(conn) # unitl close ,the data will be written. kind of dangerous if
-}
-
-
-
-
-
-balloon.plot <- function(A, ylabel = NULL, xlabel = NULL , main = NULL){
-  nr <- nrow(A)
-  A <- A[nr:1,];  
-  dat1 <- flattenMatrix(A)
-  dat1$row <- as.factor(dat1$row); dat1$col <- as.factor(dat1$col)
-  if (length(which(A<0))>0){
-    dat1$sign <- as.factor(1*(dat1$value>0))
-    dat1$sign <-factor(dat1$sign, levels =c(1,0), labels = c(">0","<0"))
-    dat1$value <- abs(dat1$value)
-  } 
-  if (!is.null(ylabel)) {dat1$row <- factor(dat1$row, levels = 1:nrow(A), ylabel[nr:1])
-  } else {dat1$row <- factor(dat1$row, levels = 1:nrow(A), as.character(nr:1) )}
-  if (!is.null(xlabel)) { dat1$col <- factor(dat1$col, levels = 1:ncol(A), xlabel)}
-  else{ dat1$col <- factor(dat1$col)}
-  #dat1$ <-  dat1$value > quantile(dat1$value, 0.9)
-  p <- ggplot(dat1,  aes(x = col, y= row ))
-  
-  if (length(which(A<0))>0){
-    p1 <- p + geom_point(aes(size = value, colour = sign), shape = 16) +xlab('')+ylab('')
-  }else{
-    p1 <- p + geom_point(aes(size = value), color = "blue", shape = 16) +xlab('')+ylab('')
-  }
-  if (! is.null(xlabel)) {
-    p1 <- p1 + theme(axis.text.x = element_text(angle = 45, hjust = 1))
-  }
-  p1 + ggtitle(main) + scale_size(range = c(0.5,3))
-}
-
-
-
-# Multiple plot function
-# copy and modified from: http://www.cookbook-r.com/Graphs/Multiple_graphs_on_one_page_(ggplot2)/
-# ggplot objects can be passed in ..., or to plotlist (as a list of ggplot objects)
-# - cols:   Number of columns in layout
-# - layout: A matrix specifying the layout. If present, 'cols' is ignored.
-#
-# If the layout is something like matrix(c(1,2,3,3), nrow=2, byrow=TRUE),
-# then plot 1 will go in the upper left, 2 will go in the upper right, and
-# 3 will go all the way across the bottom.
-#
-multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
-  library(grid)
-  
-  # Make a list from the ... arguments and plotlist
-  plots <- c(list(...), plotlist)
-  
-  numPlots = length(plots)
-  
-  # If layout is NULL, then use 'cols' to determine layout
-  if (is.null(layout)) {
-    # Make the panel
-    # ncol: Number of columns of plots
-    # nrow: Number of rows needed, calculated from # of cols
-    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
-                     ncol = cols, nrow = ceiling(numPlots/cols))
-  }
-  
-  if (numPlots==1) {
-    print(plots[[1]])
-    
-  } else {
-    # Set up the page
-    grid.newpage()
-    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
-    
-    # Make each plot, in the correct location
-    for (i in 1:numPlots) {
-      # Get the i,j matrix positions of the regions that contain this subplot
-      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
-      
-      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
-                                      layout.pos.col = matchidx$col))
-    }
-  }
-}
-
-high.deg.cluster <- function(A, label_row, label_col = NULL){
-  
-  if (!isSymmetric(A) && !is.null(label_col)){
-    #print (is.null(km_col))
-    deg.row = rowSums(A); name1 <- rownames(A)
-    deg.col = colSums(A); name2 <- colnames(A)
-    high.deg.rows = matrix("", 20, k)
-    high.deg.cols = matrix("", 20, k)
-    for ( i in 1:k){
-      deg = deg.row[which(label_row ==i)]
-      high.deg.rows[,i] <- name1[ order(-deg)[1:20] ]
-      
-      deg2 = deg.col[which(label_col ==i)]
-      high.deg.cols[,i] <- name2[ order(-deg2)[1:20] ]
-    }
-    result <- list()
-    result$high.deg.rows = high.deg.rows
-    result$high.deg.cols = high.deg.cols
-    return (result)
-  }else{
-    deg.row = rowSums(A); name1 <- rownames(A)
-    high.deg.rows = matrix("", 20, k)
-    for ( i in 1:k){
-      deg = deg.row[which(label_row ==i)]
-      high.deg.rows[,i] <- name1[order(-deg)[1:20]]
-    }
-    result = high.deg.rows
-    return (result)
-  }
-}
-
-
-high.innerProd<- function(X, X.normed, label){
-  #X has rownames
-  if (is.null(rownames(X)) ){
-    stop( "X has no row names!")
-  }
-  
-  k = length(unique(label))  
-  #colMeans need this and %*5 needs to be a matrix
-  if (min(table(label)) <2){stop("smalleset cluster has size <2") }
-
-  high.deg.inner = matrix("", 20, k)
-  for( i in 1:k){
-    center_i <- colMeans(X.normed[which(label == i),])
-    inner_i  =  X[which(label==i),] %*% matrix(center_i)
-    name_i = rownames(X)[which(label==i)]
-    high.deg.inner[,i] <- name_i[order(-inner_i)[1:20]]
-  }
-  result = high.deg.inner
-  return (result)
-}
-
-###create a graph from edgeslit
-### depends on package igraph
-createGraph <- function(el){
-  id1 <- unique(el[,1])
-  id2 <- unique(el[,2])
-  id_all <- c(id1, id2[is.na(match(id2, id1))])
-  g <- graph_from_el(as.matrix(el),directed = T)
-  A <- get.adjacency(g)
-  idx_row <- match(id1, V(g)$name)
-  idx_col <- match(id2, V(g)$name )
-  A <- A[idx_row, idx_col] 
-  res <- list(graph = g, adj = A)
-  return (res)
-}
-
-#flattenMatrix to i,j, value
-flattenMatrix <- function(adjM){
-  n = dim(adjM)[1]
-  m = dim(adjM)[2]
-  data<- data.frame(list(
-    row = rep(1:n, times = m),
-    col = rep(1:m, each = n),
-    value = as.vector(adjM)))
-  return (data)
-}
-
-
-removeMostPunctuation<-
-  function (x, preserve_intra_word_dashes = FALSE) 
-  { ## keep # and @
-    rmpunct <- function(x) {
-      x <- gsub("@", "\001", x)
-      x <- gsub("#", "\002", x)
-      x <- gsub("[[:punct:]]+", "", x)
-      x <- gsub("\001", "@", x, fixed = TRUE)
-      x <- gsub("\002", " #", x, fixed = TRUE)
-      return (x)
-    }
-    if (preserve_intra_word_dashes) { 
-      x <- gsub("(\\w)-(\\w)", "\\1\003\\2", x)
-      x <- rmpunct(x)
-      gsub("\003", "-", x, fixed = TRUE)
-    } else {
-      rmpunct(x)
-    }
-  }
-
-removeMostNumbers <- function(x){
-  gsub(' \\d+ ', " ", x)
-} 
-
-
-
-removePluralPast<- function(tdm, terms){
-  # remove 's' 
-  # for word ends with 's', whether the word without 's' is in terms. 
-  # like designs is in, check the posiition of design, all the locations of design alike are returned
-  # some are NA, means like "boss" exists, but "bos" not.
-  idx <- match( gsub(pattern = '(.*)s$', replacement = '\\1', 
-                     x= terms[grep('s$',terms)]), terms)
-  idx1 <- match(paste0(terms[idx[!is.na(idx)]],'s'), terms)    # location of plural terms
-  idx2 <- match(terms[idx[!is.na(idx)]], terms)   #location of single terms with out s
-  tdm[idx2,] <- tdm[idx1,]+tdm[idx2,]
-  terms <- terms[-idx1];  tdm<- tdm[-idx1,]; #update terms, tdm
-  
-  # remvoe 'ed'
-  idx <- match( gsub(pattern = '(.*)ed$', replacement = '\\1', x= terms[grep('ed$',terms)]), terms)
-  idx1 <- match(paste0(terms[idx[!is.na(idx)]],'ed'),terms)
-  idx2 <- match(terms[idx[!is.na(idx)]], terms)
-  tdm[idx2,] <- tdm[idx1,]+tdm[idx2,]
-  terms <- terms[-idx1];  tdm<- tdm[-idx1,]; #update terms, tdm
-  
-  print (sprintf( "after combining 's','ed' cleaning: %s words remains in %s docuemnts",
-                  dim(tdm)[1], dim(tdm)[2], '\n') )
-  
-}
-
-
-
-
-bag_of_word_tweets <- function(textvector, bigram = F){
-  
-  text <- removeMostPunctuation(text, preserve_intra_word_dashes = T)
-  text <- removeMostNumbers(text)
-  
-  #remove some special characters or emoji
-  text <- gsub("\U0001f1fa", " " ,text); text <- gsub("\U0001f1f8", " ", text)
-  text <- gsub("\u274c", " ", text)
-  text <- gsub("\\s+", " ", text)
-  vc <- VCorpus( VectorSource(text) ) # just change the vector of strings to corpus
-  if(bigram){
-    BigramTokenizer <- function(x){
-      bigram <- unlist(lapply(ngrams(words(x), 2), paste, collapse = " "), use.names = FALSE)
-      words <- unlist(words(x)) ;tokens <- c(words,bigram)
-      return (tokens)  
-    }
-    ctrl <- list( #removePunctuation = list(preserve_intra_word_dashes = TRUE),
-      stopwords = TRUE,
-      removeNumbers = FALSE
-      #, stemming = TRUE                    # remove prefix or postfix
-      , bounds = list(global= c(2,Inf))   # remove low-frequency/high frequency words
-      #, wordLengths = c(4, 20) # remove short words like 'a' 
-      #, weighting = function(x) weightSMART(x, spec = "nnn")
-      ,tokenize = BigramTokenizer
-    )
-  }else{
-    ctrl <- list( #removePunctuation = list(preserve_intra_word_dashes = TRUE),
-      stopwords = TRUE,
-      removeNumbers = FALSE
-      #, stemming = TRUE                    # remove prefix or postfix
-      , bounds = list(global= c(2,Inf))   # remove low-frequency/high frequency words
-      #, wordLengths = c(4, 20) # remove short words like 'a' 
-      #, weighting = function(x) weightSMART(x, spec = "nnn")
-      #,tokenize = BigramTokenizer
-    )
-  }
-  tdm <- TermDocumentMatrix(vc, control = ctrl)
-  return (tdm)
-}
-
-
-VI <- function(confMatrix){
-  n <- sum(confMatrix)
-  P <- rowSums(confMatrix)/n;  Q <- colSums(confMatrix)/n
-  s1 = 0 
-  confMatrix <- confMatrix/n
-  for (i in 1:length(P)){
-    if (P[i] == 0) next
-    s1 = s1 - P[i]*log(P[i])
-  }
-  s2 =0
-  for (i in 1:length(Q)){
-    if (Q[i] == 0) next
-    s2 = s2 - Q[i]*log(Q[i])
-  }
-  I = 0
-  for (i in 1:length(P)){
-    for (j in 1:length(Q[i])){
-      if (confMatrix[i,j] == 0) next # this will also skip the case P[i], Q[j] ==0
-      I = I+  confMatrix[i,j] * log(confMatrix[i,j]/P[i]/Q[j])
-  }}
-  return  (1 - 0.5* I/s1- 0.5* I/s2)
-}
-
-NMI <- function(confMatrix){
-  n <- sum(confMatrix)
-  P <- rowSums(confMatrix)/n;  Q <- colSums(confMatrix)/n
-  s1 = 0 
-  confMatrix <- confMatrix/n
-  for (i in 1:length(P)){
-    if (P[i] == 0) next
-    s1 = s1 - P[i]*log(P[i])
-  }
-  s2 =0
-  for (i in 1:length(Q)){
-    if (Q[i] == 0) next
-    s2 = s2 - Q[i]*log(Q[i])
-  }
-  I = 0
-  for (i in 1:length(P)){
-    for (j in 1:length(Q[i])){
-      if (confMatrix[i,j] == 0) next # this will also skip the case P[i], Q[j] ==0
-      I = I+  confMatrix[i,j] * log(confMatrix[i,j]/P[i]/Q[j])
-    }}
-  return  (I/sqrt(s1*s2))
 }
 
 ## missing then filled with 'NA', put in the function.R
@@ -469,6 +192,237 @@ simplifyTwitterDF <- function(dat) {
   return(data.frame(lst, stringsAsFactors = F))
 }
 
+
+
+
+#----------------------------------
+
+
+#---------------------------- text cleaning --------------------------------------
+removeMostPunctuation<-
+  function (x, preserve_intra_word_dashes = FALSE) 
+  { ## keep # and @, intra -
+    rmpunct <- function(x) {
+      x <- gsub("@", "\001", x)
+      x <- gsub("#", "\002", x)
+      x <- gsub("[[:punct:]]+", "", x)
+      x <- gsub("\001", "@", x, fixed = TRUE)
+      x <- gsub("\002", " #", x, fixed = TRUE)
+      return (x)
+    }
+    if (preserve_intra_word_dashes) { 
+      x <- gsub("(\\w)-(\\w)", "\\1\003\\2", x)
+      x <- rmpunct(x)
+      gsub("\003", "-", x, fixed = TRUE)
+    } else {
+      rmpunct(x)
+    }
+  }
+
+removeMostNumbers <- function(x){
+  #remove pure numbers
+  gsub(' \\d+ ', " ", x)
+} 
+
+
+
+removePluralPast<- function(tdm, terms){
+  # remove 's' 
+  # for word ends with 's', whether the word without 's' is in terms. 
+  # like designs is in, check the posiition of design, all the locations of design alike are returned
+  # some are NA, means like "boss" exists, but "bos" not.
+  idx <- match( gsub(pattern = '(.*)s$', replacement = '\\1', 
+                     x= terms[grep('s$',terms)]), terms)
+  idx1 <- match(paste0(terms[idx[!is.na(idx)]],'s'), terms)    # location of plural terms
+  idx2 <- match(terms[idx[!is.na(idx)]], terms)   #location of single terms with out s
+  tdm[idx2,] <- tdm[idx1,]+tdm[idx2,]
+  terms <- terms[-idx1];  tdm<- tdm[-idx1,]; #update terms, tdm
+  
+  # remvoe 'ed'
+  idx <- match( gsub(pattern = '(.*)ed$', replacement = '\\1', x= terms[grep('ed$',terms)]), terms)
+  idx1 <- match(paste0(terms[idx[!is.na(idx)]],'ed'),terms)
+  idx2 <- match(terms[idx[!is.na(idx)]], terms)
+  tdm[idx2,] <- tdm[idx1,]+tdm[idx2,]
+  terms <- terms[-idx1];  tdm<- tdm[-idx1,]; #update terms, tdm
+  
+  print (sprintf( "after combining 's','ed' cleaning: %s words remains in %s docuemnts",
+                  dim(tdm)[1], dim(tdm)[2], '\n') )
+  
+}
+
+
+
+
+bag_of_word_tweets <- function(textvector, bigram = F){
+  
+  text <- removeMostPunctuation(text, preserve_intra_word_dashes = T)
+  text <- removeMostNumbers(text)
+  
+  #remove some special characters or emoji
+  text <- gsub("\U0001f1fa", " " ,text); text <- gsub("\U0001f1f8", " ", text)
+  text <- gsub("\u274c", " ", text)
+  text <- gsub("\\s+", " ", text)
+  vc <- VCorpus( VectorSource(text) ) # just change the vector of strings to corpus
+  if(bigram){
+    BigramTokenizer <- function(x){
+      bigram <- unlist(lapply(ngrams(words(x), 2), paste, collapse = " "), use.names = FALSE)
+      words <- unlist(words(x)) ;tokens <- c(words,bigram)
+      return (tokens)  
+    }
+    ctrl <- list( #removePunctuation = list(preserve_intra_word_dashes = TRUE),
+      stopwords = TRUE,
+      removeNumbers = FALSE
+      #, stemming = TRUE                    # remove prefix or postfix
+      , bounds = list(global= c(2,Inf))   # remove low-frequency/high frequency words
+      #, wordLengths = c(4, 20) # remove short words like 'a' 
+      #, weighting = function(x) weightSMART(x, spec = "nnn")
+      ,tokenize = BigramTokenizer
+    )
+  }else{
+    ctrl <- list( #removePunctuation = list(preserve_intra_word_dashes = TRUE),
+      stopwords = TRUE,
+      removeNumbers = FALSE
+      #, stemming = TRUE                    # remove prefix or postfix
+      , bounds = list(global= c(2,Inf))   # remove low-frequency/high frequency words
+      #, wordLengths = c(4, 20) # remove short words like 'a' 
+      #, weighting = function(x) weightSMART(x, spec = "nnn")
+      #,tokenize = BigramTokenizer
+    )
+  }
+  tdm <- TermDocumentMatrix(vc, control = ctrl)
+  return (tdm)
+}
+
+
+
+#-----------------------------  evaluate clustering results  ---------------------
+
+VI <- function(confMatrix){
+  n <- sum(confMatrix)
+  P <- rowSums(confMatrix)/n;  Q <- colSums(confMatrix)/n
+  s1 = 0 
+  confMatrix <- confMatrix/n
+  for (i in 1:length(P)){
+    if (P[i] == 0) next
+    s1 = s1 - P[i]*log(P[i])
+  }
+  s2 =0
+  for (i in 1:length(Q)){
+    if (Q[i] == 0) next
+    s2 = s2 - Q[i]*log(Q[i])
+  }
+  I = 0
+  for (i in 1:length(P)){
+    for (j in 1:length(Q[i])){
+      if (confMatrix[i,j] == 0) next # this will also skip the case P[i], Q[j] ==0
+      I = I+  confMatrix[i,j] * log(confMatrix[i,j]/P[i]/Q[j])
+  }}
+  return  (1 - 0.5* I/s1- 0.5* I/s2)
+}
+
+NMI <- function(confMatrix){
+  n <- sum(confMatrix)
+  P <- rowSums(confMatrix)/n;  Q <- colSums(confMatrix)/n
+  s1 = 0 
+  confMatrix <- confMatrix/n
+  for (i in 1:length(P)){
+    if (P[i] == 0) next
+    s1 = s1 - P[i]*log(P[i])
+  }
+  s2 =0
+  for (i in 1:length(Q)){
+    if (Q[i] == 0) next
+    s2 = s2 - Q[i]*log(Q[i])
+  }
+  I = 0
+  for (i in 1:length(P)){
+    for (j in 1:length(Q[i])){
+      if (confMatrix[i,j] == 0) next # this will also skip the case P[i], Q[j] ==0
+      I = I+  confMatrix[i,j] * log(confMatrix[i,j]/P[i]/Q[j])
+    }}
+  return  (I/sqrt(s1*s2))
+}
+
+high.deg.cluster <- function(A, label_row, label_col = NULL){
+  
+  if (!isSymmetric(A) && !is.null(label_col)){
+    #print (is.null(km_col))
+    deg.row = rowSums(A); name1 <- rownames(A)
+    deg.col = colSums(A); name2 <- colnames(A)
+    high.deg.rows = matrix("", 20, k)
+    high.deg.cols = matrix("", 20, k)
+    for ( i in 1:k){
+      deg = deg.row[which(label_row ==i)]
+      high.deg.rows[,i] <- name1[ order(-deg)[1:20] ]
+      
+      deg2 = deg.col[which(label_col ==i)]
+      high.deg.cols[,i] <- name2[ order(-deg2)[1:20] ]
+    }
+    result <- list()
+    result$high.deg.rows = high.deg.rows
+    result$high.deg.cols = high.deg.cols
+    return (result)
+  }else{
+    deg.row = rowSums(A); name1 <- rownames(A)
+    high.deg.rows = matrix("", 20, k)
+    for ( i in 1:k){
+      deg = deg.row[which(label_row ==i)]
+      high.deg.rows[,i] <- name1[order(-deg)[1:20]]
+    }
+    result = high.deg.rows
+    return (result)
+  }
+}
+
+
+high.innerProd<- function(X, X.normed, label){
+  #X has rownames
+  if (is.null(rownames(X)) ){
+    stop( "X has no row names!")
+  }
+  
+  k = length(unique(label))  
+  #colMeans need this and %*5 needs to be a matrix
+  if (min(table(label)) <2){stop("smalleset cluster has size <2") }
+  
+  high.deg.inner = matrix("", 20, k)
+  for( i in 1:k){
+    center_i <- colMeans(X.normed[which(label == i),])
+    inner_i  =  X[which(label==i),] %*% matrix(center_i)
+    name_i = rownames(X)[which(label==i)]
+    high.deg.inner[,i] <- name_i[order(-inner_i)[1:20]]
+  }
+  result = high.deg.inner
+  return (result)
+}
+
+
+# ---- ----------------- graph analysis ----------------------------------------
+###create a graph from edgeslit
+### depends on package igraph
+createGraph <- function(el){
+  id1 <- unique(el[,1])
+  id2 <- unique(el[,2])
+  id_all <- c(id1, id2[is.na(match(id2, id1))])
+  g <- graph_from_el(as.matrix(el),directed = T)
+  A <- get.adjacency(g)
+  idx_row <- match(id1, V(g)$name)
+  idx_col <- match(id2, V(g)$name )
+  A <- A[idx_row, idx_col] 
+  res <- list(graph = g, adj = A)
+  return (res)
+}
+
+#flattenMatrix to i,j, value
+flattenMatrix <- function(adjM){
+  n = dim(adjM)[1]
+  m = dim(adjM)[2]
+  data<- data.frame(list(
+    row = rep(1:n, times = m),
+    col = rep(1:m, each = n),
+    value = as.vector(adjM)))
+  return (data)
+}
 
 DisimA <- function(A, k, taus = c(0,0), rowNorm = T, simultaneous =T, verbose = T, seed = NULL){
   if(!is.null(seed)) {set.seed(seed)
