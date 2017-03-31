@@ -1,3 +1,11 @@
+
+#Intro:
+# This folder use to create multiple tokens, indexed by k
+# token are save in a csv file
+# note: you can not run a loop since you need to stop every time to copy over the verification number
+#-----------------------------------------
+
+
 #credential <- read.csv("../data/twitter_credential.csv", stringsAsFactors =F)
 #save(credential, file = '../data/credential.RData')
 load('../data/credential.RData')
@@ -27,14 +35,17 @@ if(!file.exists(paste0("./credentials/credential",k,"/my_oauth") )){
   
   #STOP!!!! for the browser to give you the verifier
 }
-##save in the folder
+
+#save in the folder
 if(! file.exists("./credentials/all")){
   dir.create("./credentials/all")
 }
 save(my_oauth, file = paste0("./credentials/my_oauth",k))
 save(my_oauth, file = paste0("./credentials/credential37/my_oauth",k))
 
-getFollowers('swang282',oauth_folder = './credentials/credential37')
+
+#library(smappR)
+getFollowers('swang282',oauth_folder = './credentials/credential37') #verify it works 
 
 files <- NULL
 files <- c(files, list.files("./credentials/credential_mixed/"))
@@ -51,7 +62,6 @@ for(f in list.files("./credentials/all/")){
   item_k <- c(my_oauth$consumerKey, my_oauth$consumerSecret, my_oauth$oauthKey, my_oauth$oauthSecret)
   cred[k,] <- item_k
 }
-
 
 
 

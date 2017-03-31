@@ -11,23 +11,42 @@ myToJSON <- function(data.json, verbose = T){
   a <- integer(2)
   a[1] = sum(validateIds == TRUE); a[2] <- sum(validateIds = FALSE)
   if (verbose){
-    message("valid json string", a[1], "invalid json string ", a[2])
+    message("valid json string: ", a[1], ",  invalid json string ", a[2])
   }
   if (a[1] >0){
     data.json <- data.json[which(validateIds == TRUE)] 
   }else{
     message("invalid json files, no vlid json strings")
   }
-  return (data.json)
   return (sprintf("[%s]", paste(data.json, collapse = ',')))
 }
 
+##split SN1 in to pieces, this function download the k-th piece.
+downloadTweets <- function(SNs, startIdx, endIdx, output_folder, oauth_folder, logFile){
+  p1 <- Sys.time()
+  for (i in startIdx:endIdx){
+    file_name <- paste0(output_folder, SNs[i],".json")
+    tryCatch(
+      expr = {
+        getTimeline(filename = file_name, n =3200, screen_name = SNs[i],
+                    oauth_folder = oauth_folder,
+                    sleep = 0.5, verbose = FALSE)
+        if (!is.null(logFile)){cat( paste0( SNs[i], ", sucess"), file=logFile, append=TRUE, sep = "\n")}
+      }, 
+      error = function(e){
+        if (!is.null(logFile)) {cat(paste0( SNs[i], ", fail"), file=logFile, append=TRUE, sep = "\n")}
+      }
+    )
+  }
+  return(data.frame(k = k, nobs = endIdx - startIdx, time = Sys.time()-p1))
+}
 
-processTweets <- function( data_folder, output_folder){
+
+processTweets <- function( json_folder, output_folder){
   
   if (!file.exists(output_folder)) { dir.create(output_folder)}
   
-  files = list.files(data_folder)
+  files = list.files(json_folder)
   interval = 50
   nbreaks =  ceiling(length(files) / interval)
   
@@ -40,7 +59,7 @@ processTweets <- function( data_folder, output_folder){
     }
     for (j in idx_set) {
       filepath <-
-        paste0(data_folder, files[j]) #"./data/trump_followers_screen-names.json"#
+        paste0(json_folder, files[j]) #"./data/trump_followers_screen-names.json"#
       data.str <- c(data.str, readLines(filepath))
     }
     idx <- unlist(lapply(data.str, validate))
@@ -60,8 +79,73 @@ processTweets <- function( data_folder, output_folder){
               row.names = F)
     message("i=", i, ', size =', nrow(data.df), "\n")
   }
-  
 }
+
+#--- use
+processTweets_time <- function(csv_folder, start_time = NULL, end_time, n_cores = 1  ){
+  #end_time = '2016-11-09 00:00:00'
+  # individual file
+  getTrumpTweets <- function(filepath, target_user_id_str){
+    #target_user_id_str ="25073877"
+    dat <- read.csv(filepath, colClasses = c("character"), stringsAsFactors = F)
+    idx1 <- NULL; idx2 <- NULL
+    if (!is.null(start_time)){
+      idx1 <- which( dat$created_at < start_time)  
+    }
+    if (!is.null(end_time)){
+      idx2 <- which( dat$created_at <=end_time)
+    }
+    idx <- unique(c(idx1,idx2))
+    if (length(idx) ==0){
+      tweets = dat
+    }else{
+      tweets <- dat[-idx,]
+    }
+    return(tweets)
+  }
+  
+  files <- list.files(csv_folder)
+  cl <- makeCluster(n_cores)
+  registerDoParallel(cl)
+  tweets  <- foreach (i = 1:length(files),
+                      .combine = rbind) %dopar% {
+                        filepath <- paste0(csv_folder, files[i])
+                        getTrumpTweets(filepath, "25073877")
+                      }
+  stopCluster(cl)
+  return (tweets)
+}
+
+# ----- extract tweets are related to Trump (replies, or )
+processTweets_people<- function(csv_folder, user_id_str, n_cores = 6){
+  
+  # individual file
+  getTrumpTweets <- function(filepath, target_user_id_str){
+    #target_user_id_str ="25073877"
+    dat <- read.csv(filepath, colClasses = c("character"), stringsAsFactors = F)
+    idx1 <- which( ((dat$in_reply_to_user_id_str == target_user_id_str) * 
+                      (!is.na(dat$in_reply_to_status_id_str))) >0)      #reply, or mention
+    idx2 <- which(( (  dat$quoted_status_user_id_str == target_user_id_str ) * 
+                      (!is.na(dat$quoted_status_id_str))) >0)   # quoted + comments
+    idx3 <- which(( (  dat$retweet_status_user_id_str == target_user_id_str ) * 
+                      (!is.na(dat$retweet_status_id_str))) >0)  # retweet + no comments
+    idx <- unique(c(idx1, idx2, idx3))
+    tweets<- dat[idx,]
+    return(tweets)
+  }
+  
+  files <- list.files(csv_folder)
+  cl <- makeCluster(n_cores)
+  registerDoParallel(cl)
+  tweets  <- foreach (i = 1:length(files),
+                      .combine = rbind) %dopar% {
+                        filepath <- paste0(csv_folder, files[i])
+                        getTrumpTweets(filepath, user_id_str)
+                      }
+  stopCluster(cl)
+  return (tweets)
+}  
+
 
 #download the friend list from a list of twitter screen names
 #SN1: list of screen names
@@ -97,8 +181,8 @@ DownloadFriendlist <- function (SN1, my_oauth_folder, output){
 
 
 unlistWithNA <- function(field) {
-  notnulls <- unlist(lapply(field, function(x)
-    ! is.null(x)))
+  #filed -- list/vec 
+  notnulls <- unlist(lapply(field, function(x) ! is.null(x)))
   vect <- rep(NA, length(field))
   vect[notnulls] <- unlist(field)
   return (vect)
@@ -106,7 +190,8 @@ unlistWithNA <- function(field) {
 
 #dat is output of  #jsonlite::fromJSON(, simplifyDataFrame = T)
 simplifyTwitterDF <- function(dat) {
-  created_at = unlistWithNA(dat$created_at)
+  
+  unlistWithNA(dat$created_at)
   id_str = unlistWithNA(dat$id_str)
   text = unlistWithNA(dat$text)
   truncated = unlistWithNA(dat$truncated)
@@ -155,11 +240,17 @@ simplifyTwitterDF <- function(dat) {
     place_name = unlistWithNA(dat$place$name)
     place_country = unlistWithNA(dat$place$country)
   }
-  retweet_count = unlistWithNA(dat$retweet_count)
-  favorite_count = unlistWithNA(dat$favorite_count)
-  favorited = unlistWithNA(dat$favorited)
-  retweeted = unlistWithNA(dat$retweeted)
-  lang = unlistWithNA(dat$lang)
+  retweet_count = ifse(is.null(dat$retweet_count), rep(NA, nrow(dat)), 
+                     unlistWithNA(dat$favorite_count))
+  favorite_count = ifse(is.null(dat$favorite_count), rep(NA, nrow(dat)), 
+                        unlistWithNA(dat$favorite_count))
+  favorited = ifse(is.null(dat$favorited), rep(NA, nrow(dat)), 
+                   unlistWithNA(dat$favorited))
+  retweeted = ifse(is.null(dat$retweeted), rep(NA, nrow(dat)), 
+                   unlistWithNA(dat$retweeted))
+  lang = ifse(is.null(dat$lang), rep(NA, nrow(dat)), 
+              unlistWithNA(dat$lang))
+
   
   lst <-
     list(

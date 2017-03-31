@@ -1,29 +1,39 @@
 
 
-DataPath <- "../data/friends_info/edgelist_Feb27/"
+
 
 # ----- part 0: download the Trump followers and take a sample of sample followers --
 
 sn = "realDonaldTrump"
 followers_IDs <- getFollowers(sn, cursor = -1, oauth_folder = my_oauth_folder, sleep = 30, 
-                              output = paste0("/p/stat/songwang/trump_newFollowers/ids/", 
+                              output = paste0("../data/friends_info/ids/", 
                                               sn,"_",Sys.Date(),"_ids.txt")) #mutiple 5k
 
 followers_info <- getUsersBatch(ids = followers_IDs, oauth_folder = my_oauth_folder, 
                                 include_entities = TRUE, verbose = TRUE, 
-                                output = paste0("/p/stat/songwang/trump_newfollowers/jsons/",
-                                                sn, "_info.json"))
+                                output = paste0("../data/friends_info/jsons/",
+                                                sn, Sys.Date(),"_info.json"))
+# jsons files are processed in Python, if followers_info cannot be generated.
+# the following data are created and sample 
 
-# jsons files are processed in Python, the following data are created and sample 
+
+
+# This research started from last Sept, we first did a smalle experiment on followers from Mar 2016 - Oct 10 2016.
+# first
+# 
+# 
+# 
+# started to download the information for the first 6.5 million, the time effects got compromised 
+#already.  i.e. the data not downloaded at the same time.
+# 
+# follower ids most before Oct 10, about 12.2 million, 0.8 millions added later after election
+# based on ids on Jan -8  -- toal 13 millions
+# samped 377809 samples from them. first 
+
+
+
 # of 244798 followers sampled screen names as below
 # sampleTrumpFollowers.ipynb
-
-
-# '../data/followers_info/jsons/id_counts_2.csv'  6.5 M followers -part 1
-# '../data/followers_info/jsons/id_counts.csv'  5.4 M followers - part2
-
-
-
 
 
 ## ----- part 1: download the friends list of sampled set of followers --
@@ -33,7 +43,6 @@ followers_info <- getUsersBatch(ids = followers_IDs, oauth_folder = my_oauth_fol
 rm(list =ls ())
 source("function.R")
 library("smappR")
-
 
 
 samp <- read.csv(file ="../data/followers_info/jsons/sampleFeb17.csv", 
@@ -153,8 +162,10 @@ for (i in 1:14){
 }
 
 library("smappR")
-samp <- read.csv(file ="../data/followers_info/jsons/sampleFeb17.csv", 
-                 header = T, stringsAsFactors = F)
+# samp <- read.csv(file ="../data/followers_info/jsons/sampleFeb17.csv", 
+#                 header = T, stringsAsFactors = F)
+samp <- read.csv("../data/friends_info/edgelist_Feb27/sampleMar20.csv",colClasses =c("character"))
+
 SN1 <- samp[,2]  
 
 
@@ -208,7 +219,85 @@ result <- foreach (k = 1:nfolder,
 
 #mistenly delete first part t05
 
+#download a 13.3 followers' timeline, Mar 25
+library("smappR")
+# samp <- read.csv(file ="../data/followers_info/jsons/sampleFeb17.csv", 
+#                 header = T, stringsAsFactors = F)
+samp <- read.csv("../data/friends_info/edgelist_Feb27/sampleMar20.csv",colClasses =c("character"))
 
+SN1 <- samp[,2]  
+
+
+library(doParallel)
+n_cores = detectCores()
+cl <- makeCluster(14)
+registerDoParallel(cl)
+
+##split SN1 in to pieces, this function download the k-th piece.
+downloadTweets <- function(SNs, startIdx, endIdx, output_folder, oauth_folder, logFile){
+  p1 <- Sys.time()
+  for (i in (startIdx):endIdx){
+    file_name <- paste0(output_folder, SNs[i],".json")
+    tryCatch(
+      expr = {
+        getTimeline(filename = file_name, n =3200, screen_name = SNs[i],
+                    oauth_folder = oauth_folder,
+                    sleep = 0.5, verbose = FALSE)
+        if (!is.null(logFile)){cat( paste0( SNs[i], ", sucess"), file=logFile, append=TRUE, sep = "\n")}
+      }, 
+      error = function(e){
+        if (!is.null(logFile)) {cat(paste0( SNs[i], ", fail"), file=logFile, append=TRUE, sep = "\n")}
+      }
+    )
+  }
+  return(data.frame(k = k, nobs = endIdx - startIdx, time = Sys.time()-p1))
+}
+
+nfolder = 14
+intervals <- seq(0, length(SN1),by= floor(length(SN1)/nfolder))
+intervals[15] <- length(SN1)
+startIdx <- intervals[1:14]+1
+endIdx <- intervals[-1]
+
+# stop in the middle, restart # Mar26
+tmp1 <- read.csv("../data/friends_info/edgelist_Feb27/timelines_2/n_lines.csv", header = F)
+startIdx1 <- intervals[1:14]+as.numeric(gsub("(.*) log.*", "\\1", tmp1$V1) )+1
+#cbind(startIdx1, endIdx)
+
+tmp2<- read.csv("../data/friends_info/edgelist_Feb27/timelines/line2.csv", header =F)
+startIdx2 <- startIdx1 + as.numeric(gsub("(.*) log.*", "\\1", tmp2$V1) )
+#cbind(startIdx1, startIdx2, endIdx)
+
+tmp3 <- read.csv("../data/friends_info/edgelist_Feb27/timelines/line3.csv", header =F)
+startIdx3 <- startIdx2 + as.numeric(gsub("(.*):.*", "\\1", tmp3$V1) )
+#cbind(startIdx1, startIdx2, endIdx)cbind(startIdx1, startIdx, endIdx)	
+
+tmp4 <- read.csv("../data/friends_info/edgelist_Feb27/timelines/line4.csv", header =F)
+startIdx <- startIdx3 + as.numeric(gsub("(.*):.*", "\\1", tmp4$V1) )
+cbind(startIdx1, startIdx2, startIdx, endIdx)	
+
+result <- foreach (k = 1:nfolder,
+                 .combine = rbind,
+                 .packages = c("smappR") ) %dopar% {
+                   # download tweets, save  
+                   k_str = ifelse( k < 10, paste0('0',k), k)
+                   output <- "../data/friends_info/edgelist_Feb27/timelines/"
+                   logFile = paste0(output,"log",k_str,".txt")
+                   output_folder <- paste0(output,"t",k_str,"/")
+                   if (! file.exists( output_folder )) dir.create( output_folder)
+                   oauth_folder <- paste0("./credentials/credential_mixed",k_str)
+                   if (k ==3){
+                     oauth_folder <- paste0("./credentials/credential_mixed",15)
+                   }
+                   idx1 = startIdx[k]; idx2 <- endIdx[k]
+                   downloadTweets(SNs = SN1, startIdx = idx1 , endIdx = idx2 , 
+                                  output_folder, oauth_folder, logFile)
+                 }
+stopCluster(cl)
+Sys.time()
+#error we have, try catch will continue. 
+#{"request":"\/1.1\/statuses\/user_timeline.json","error":"Not authorized."}  -- privacy
+#{"errors":[{"code":34,"message":"Sorry, that page does not exist."}]}  -- pate not exist
 
 
 
@@ -218,23 +307,34 @@ result <- foreach (k = 1:nfolder,
 
 
 rm(list =ls())
-source("Head_file.R")
-source("function.R")
-data_folder <-
-  "../data/friends_info/edgelist_Feb27/timelines/t051/"
-output_folder <-
-  "../data/friends_info/edgelist_Feb27/timelines_csv/t05/"
-if (!file.exists(output_folder)) { dir.create(output_folder)}
-
-
-files = list.files(data_folder)
-files = files
-interval = 100
-nbreaks =  ceiling(length(files) / interval)
 library(doParallel)
 n_cores = detectCores()
-cl <- makeCluster(floor(2))
+cl <- makeCluster(3)
 registerDoParallel(cl)
+#source("~/Stat/Twitters/code/Head_file.R")
+
+source("~/Stat/Twitters/code/function.R")
+library(smappR)
+library(jsonlite)
+result <- 
+  foreach(i = c(12:14),
+          .combine = rbind, 
+          .packages= c("jsonlite", "smappR")) %dopar% {
+      time1 = Sys.time()          
+      i_str = ifelse(test = {i>9}, i , paste0("0",i))
+      data_folder <-
+        paste0("/p/stat/songwang/timelines/","t",i_str,"/")
+      #data_folder <- paste0("~/Stat/Twitters/t03/")
+      output_folder <-
+        paste0("/p/stat/songwang/timelines_csv/", "t",i_str,"/") 
+      processTweets(data_folder, output_folder)
+      
+      elpase_time <- Sys.time() - time1
+      list(i = i,  time = paste0(elpase_time, " ", attr(elpase_time,"units"))) 
+}
+
+
+#another parallel schema, this will cost a lot of memory
 results <-
   foreach (i = 1:nbreaks,
            .combine = rbind,
@@ -257,10 +357,6 @@ results <-
              
              dat <- jsonlite::fromJSON(data.json, simplifyDataFrame = T)
              data.df <- simplifyTwitterDF(dat)
-             #lst2 <- lapply(lst1, function(x) selected(x))
-             # lst3 <- lapply(lst2, function(x) as.data.frame(x))
-             # data.df <- do.call("rbind", lst3)
-             #data.df <- data.frame(do.call("rbind", lapply(lst2, function(x) as.data.frame(x)) ) )
              i_str <-
                paste0(paste0(rep('0', nchar(nbreaks) - nchar(i)), collapse = ""), i, collapse = "")
              write.csv(data.df,
@@ -280,126 +376,177 @@ write.csv(results, file = "results05.csv", row.names = F)
 
 
 
-## --------------------PART 5: -- cleanning and construct graph analyze ------------
-#in python, saved as edgelist and adjlist
-edgelist <- read.csv("edgelist_1.csv", colClasses = c("character"))
-el = edgelist[,1:2]; names(el) <-c("followers_id_str", "friends_id_str")
-
-followers <- unique(el$followers_id_str)
-friends <- unique(el$friends_id_str)
-i_set <- match(el$followers_id_str, followers)
-j_set <- match(el$friends_id_str, friends)
-
-library(Matrix)
-A <- sparseMatrix(i = i_set, j = j_set, x= rep(1, length(i_set)))
-svd50_1 <- irlba(A, nv =52); print(Sys.time())
 
 
-followers <- unique(edgelist[,1])
+## --------------------PART 5: partition adjlists, create edgelist ------------
 
-samp1 <- read.csv("../data/friends_info/edgelist_Feb27/sample_Mar20.csv",colClasses =c("character"))
-samp2 <- read.csv("../data/friends_info/edgelist_Feb27/sampleFeb17.csv",colClasses =c("character"))
-trump <- read.csv("../data/friends_info/edgelist_Feb27/trump_followers_info.csv",colClasses = c("character"))
-# id_counts_all <- read.csv("followers_info/jsons/id_counts_all.csv")  
-#12877541, Mar22
-#id_str, screen_name, protected, follower_count  # removed duplicates
-all <- readLines("../data/friends_info/edgelist_Feb27/ids_13M.txt")
-id_sn <- trump[,4:5]
-rm(trump) #save memory
-
-i1 <- match(all[3.2e6], id_sn$id_str)
-# 3130834
-i2 <- match(all[10e6], id_sn$id_str)
-# 9902771
-
-id_sn1 <- id_sn[1:i1,]
-id_sn2 <- id_sn[(i1+1):i2,]
-id_sn3 <- id_sn[(i2+1):nrow(id_sn),]
-
-# note that there are some duplicate id_strs
-length(ids)
-#[1] 12877541
-nrow(id_sn)
-#[1] 12879486
-
-#Among the newly 0.8M people, about 1900 have ids same as before
-#-- 1, those people unfollow and then follow
-#-- 2, previous account with that ids suspended, a new account created. 2 in our sample are like this.
-'> id_sn[which(id_sn$id_str == "72542082"),]
-id_str screen_name
-108020  72542082   mithoMaya
-1274102 72542082     popup2k
-> id_sn[which(id_sn$id_str == "3250613910"),]
-id_str    screen_name
-167355   3250613910       Neskuler
-10056146 3250613910 AdanFashion511
-'
-samp_sn <- c(samp1$screen_name, samp2$non.random)
-idx1 <- match(samp_sn, id_sn1$screen_name)
-idx2 <- match(samp_sn, id_sn2$screen_name)
-idx3 <- match(samp_sn, id_sn3$screen_name)
-
-idx1[is.na(idx1)] <- 0
-idx2[is.na(idx2)] <- 0
-idx3[is.na(idx3)] <- 0
+#parition the graph into three parts.
 
 
-sum(idx1*idx2*idx3>0)
 
-'[1] 0
-sum(idx1*idx2>0)  # show up in graph1, graph2
-[1] 136
-sum(idx1*idx3>0) 
-[1] 29
-sum(idx2*idx3>0)
-[1] 1
-'
+all_samp <- read.csv("../data/friends_info/edgelist_Feb27/all_samp_idsn_counts.csv", 
+                     colClasses = c("character"))
+ids_13m <- readLines("../data/friends_info/edgelist_Feb27/originalData/ids_13M.txt")
+
+#cut point at 3.2 m down the 13m list
+#cut point at 10 m
+
+idx1 <- match( all_samp$id_str, ids_13m[2.8e6:3.5e6])
+which(idx1 > 0.4e6)  #value at 0.4e6
+i1 <- 61028  # 1:61028 lines, most of values before this are in [0, 3.2m]
+
+idx2 <- match(all_samp$id_str, ids_13m[9.5e6:10.1e6])
+which(idx2> 0.5e6)   
+i2 <- 252772; #values beyond this are consistently greater 10m
+
+#252772 : 377809  belong to three groups
+# nrow(all_samp)
+
+#head -61028 adjlist_all.txt >> adjlist_1.txt
+#head -2552772 adjlist_all.txt|tail - 191744 >> adjlist_2.txt
+#tail -125037 adjlist_all.txt >> adjlist_3.txt
 
 
-'
-nrow(graph3)+nrow(graph1)+nrow(graph2)
-[1] 377803
-> length(samp_sn)  #6 are missing
-[1] 377809
-which(idx1+idx2+idx3==0)
-[1]    16009 104706
-graph1 <- rbind(graph1,samp1[which(idx1+idx2+idx3==0),1:2])
-> nrow(graph1)
-[1] 60951
 
-> f[,1:2]
-id_str   screen_name
-1   14295211 TaylorGerring
-2 2358442358   iprayanyway
-'
+# we allow some mismatches. due to account activity. unfriend, friend again and so on.
+# there are less than 100 mismatches.
+# potentially some overlapping between ids. especially among 1:0.809e6 and 0.809e6 13e6.
+# check carefully, there are about 1944 duplicates in terms of id_str
+
+length(unique(ids_13m)) #12998006
+
+
+#Based on the three sets of adjacency list, we python script is used to create the edgelist
+#save as edgelist_1.csv, edgelist_2.csv, edgelit_3.csv
+# remove those friends having less thant 20 folllosers among the networks graph1, graph2, graph3
+
+
+
+
+
+#----------------- download friends info  especially their followers_count ------------
+#after process the three graphs using python code 
+
+#manually parallel download friends info -- easy to check and pick from where failed
+
 library(smappR)
-#f<- getUsersBatch(screen_names = samp_sn[which(idx1+idx2+idx3==0)], 
-#                  oauth_folder = './credentials/credential_mixed01/' )
-f <- data.frame(id_str=c("14295211","2358442358"), screen_name = c("TaylorGerring","iprayanyway"))
-graph1 <-rbind( graph1,f[,1:2])
-nrow(graph1)+ nrow(graph2)+nrow(graph3)
+friends1 <- readLines("../data/friends_ids_1.txt")
+my_oauth_folder <- "./credentials/credential_mixed01/"
+friends_info1<- getUsersBatch(ids = friends1, oauth_folder = my_oauth_folder, 
+                              include_entities = TRUE, verbose = TRUE, 
+                              output = "../data/friends_1.json")
+close(output) # 20 tokens, takes about 2 days
+write.csv(friends_info1, file = "../data/friends1_info.csv") 
+#some times we cannot do this, because we lose the connect or what.
+# wait for a whole, cannot write out.
 
-'> nrow(graph1)
-[1] 61001
-> nrow(graph2)
-[1] 191769
-> nrow(graph3)
-[1] 125039
+
+
+library(smappR)
+friends2 <- readLines("../data/friends_ids_2.txt")
+my_oauth_folder <- "./credentials/credential_mixed02/"
+friends_info2 <- getUsersBatch(ids = friends2, oauth_folder = my_oauth_folder, 
+                               include_entities = TRUE, verbose = TRUE, 
+                               output = "../data/friends_2.json")
+close(output)
+write.csv(friends_info2, file = "../data/friends2_info.csv")
+
+
+library(smappR)
+friends3 <- readLines("../data/friends_ids_3.txt")
+my_oauth_folder <- "./credentials/credential_mixed03/"
+friends_info3 <- getUsersBatch(ids = friends3, oauth_folder = my_oauth_folder, 
+                               include_entities = TRUE, verbose = TRUE, 
+                               output = "../data/friends_3.json")
+close(output)
+write.csv(friends_info3, file = "../data/friends3_info.csv")
+
+## due to exceed memory limit. redownload the following
+'
+grep -n "820335577" friends_ids_2.txt 
+4109621:820335577
+wc -l friends_ids_2.txt 
+4111145 friends_ids_2.txt
+
+grep -n "253513562" friends_ids_3.txtson
+2942333:253513562
+bigmem04:data$ wc -l friends_ids_3.txt 
+3169691 friends_ids_3.txt
 '
 
-ii1 <- match(samp1$screen_name, id_sn$screen_name)
-which(ii1>i1) #i is the seprating point 3130834
-# 61029,61030...
-
-ii2 <- match(samp2$non.random, id_sn$screen_name[(5e6+1):nrow(id_sn)])
-samp3 <- samp2[order(ii2),]
-ii3 <- match(samp3$non.random, id_sn$screen_name)
-which(ii3>i2) #125022
-graph3 <- adj1[119762:nrow(samp2)]  #12537 rows
-
-## 61028
-## 119762, length(ii3)-119762+1 tail - 125037
+library(smappR)
+friends <- readLines("../data/friends_ids_2.txt")
+my_oauth_folder <- "./credentials/credential_mixed03/"
+friends_info <- getUsersBatch(ids = friends[4109622:length(friends)], oauth_folder = my_oauth_folder, 
+                               include_entities = TRUE, verbose = TRUE, 
+                               output = "../data/friends_2_2.json")
+close(output)
+write.csv(friends_info, file = "../data/friends2_2_info.csv")
 
 
-## first 61208 lines; last 12537 lines, the middle 61029:252772  191744
+library(smappR)
+friends <- readLines("../data/friends_ids_3.txt")
+my_oauth_folder <- "./credentials/credential_mixed03/"
+friends_info <- getUsersBatch(ids = friends[2942334:length(friends)], oauth_folder = my_oauth_folder, 
+                              include_entities = TRUE, verbose = TRUE, 
+                              output = "../data/friends_3_2.json")
+close(output)
+write.csv(friends_info, file = "../data/friends3_2_info.csv")
+
+
+
+
+
+
+
+
+
+## ----- clean up tweets, apply time constraint, related to trump ---
+## some issues about parallel -- encounter memory issue. 
+# a lot of cashe if you constant change cores. Better run a long time a single core.
+# each folder many small files, good to use parallel.  I decide parallel there. once one folder 
+# finishes, I will close manually to clean up the cashe on the those cores. Otherwise, cashe will explode.
+# R doesn't release memory when first job is done.
+source("Head_file.R")
+source("function.R")
+#csv_folder <- "../data/friends_info/edgelist_Feb27/timelines_csv_1/t01_part1/"
+#tweets1 <-   processTweets_time(csv_folder,end_time = '2016-11-09 00:00:00')
+for (i in 11:14 ){
+  i_str <- ifelse(i <10, paste0('0',i), i)
+  csv_folder <- paste0("../data/friends_info/edgelist_Feb27/timelines_csv_1/t",i_str,"_part1/")
+  tweets <-   processTweets_time(csv_folder,end_time = '2016-11-09 00:00:00', n_cores = 8)
+  write.csv(tweets, file = paste0("../data/friends_info/edgelist_Feb27/timelines_csv_1_Nov8/t",
+            i_str,"_part1.csv"))
+  cat("i=", i , "is done! \n\n")
+  rm(tweets)
+}
+
+# second part tweets
+source("Head_file.R")
+source("function.R")
+for (i in c(1:2,4:6,8:14) ){
+  i_str <- ifelse(i <10, paste0('0',i), i)
+  csv_folder <- paste0("../data/friends_info/edgelist_Feb27/timelines_csv/t",i_str,"_part2/")
+  tweets <-   processTweets_time(csv_folder,end_time = '2016-11-09 00:00:00', n_cores = 8)
+  write.csv(tweets, file = paste0("../data/friends_info/edgelist_Feb27/timelines_csv_1_Nov8/t",
+                                  i_str,"_part2.csv"))
+  cat("i=", i , "is done! \n\n")
+  rm(tweets)
+}
+
+#trump user_id_str = "25073877"
+source("Head_file.R")
+source("function.R")
+for (i in 1:14 ){
+  i_str <- ifelse(i <10, paste0('0',i), i)
+  csv_folder <- paste0("../data/friends_info/edgelist_Feb27/timelines_csv_1/t",i_str,"_part1/")
+  tweets <-   processTweets_people(csv_folder,user_id_str = "25073877", n_cores = 8)
+  write.csv(tweets, file = paste0("../data/friends_info/edgelist_Feb27/timelines_csv_1_trump/t",
+                                  i_str,"_part1.csv"))
+  cat("i=", i , "is done! \n\n")
+  rm(tweets)
+}
+
+
+
 
