@@ -102,7 +102,6 @@ processTweets_time <- function(csv_folder, start_time = NULL, end_time, n_cores 
   #end_time = '2016-11-09 00:00:00'
   # helper function
   getTweets <- function(filepath){
-    dat <- read.csv(filepath, colClasses = c("character"), stringsAsFactors = F)
     idx1 <- NULL; idx2 <- NULL
     if (!is.null(start_time)){
       idx1 <- which( dat$created_at < start_time)  
@@ -125,7 +124,9 @@ processTweets_time <- function(csv_folder, start_time = NULL, end_time, n_cores 
   tweets  <- foreach (i = 1:length(files),
                       .combine = rbind) %dopar% {
                         filepath <- paste0(csv_folder, files[i])
+
                         getTweets(filepath)
+
                       }
   stopCluster(cl)
   return (tweets)
@@ -528,6 +529,33 @@ flattenMatrix <- function(adjM){
   m = dim(adjM)[2]
   data<- data.frame(list(
     row = rep(1:n, times = m),col = rep(1:m, each = n), value = as.vector(adjM)))
+  return (data)
+}
+
+# ---- ----------------- graph analysis ----------------------------------------
+###create a graph from edgeslit
+### depends on package igraph
+createGraph <- function(el){
+  id1 <- unique(el[,1])
+  id2 <- unique(el[,2])
+  id_all <- c(id1, id2[is.na(match(id2, id1))])
+  g <- graph_from_el(as.matrix(el),directed = T)
+  A <- get.adjacency(g)
+  idx_row <- match(id1, V(g)$name)
+  idx_col <- match(id2, V(g)$name )
+  A <- A[idx_row, idx_col] 
+  res <- list(graph = g, adj = A)
+  return (res)
+}
+
+#flattenMatrix to i,j, value
+flattenMatrix <- function(adjM){
+  n = dim(adjM)[1]
+  m = dim(adjM)[2]
+  data<- data.frame(list(
+    row = rep(1:n, times = m),
+    col = rep(1:m, each = n),
+    value = as.vector(adjM)))
   return (data)
 }
 
