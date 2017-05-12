@@ -198,7 +198,7 @@ dim(tweetsFromHadoop)  ## 11305
 idx <- match(tw_ids , tweetsFromHadoop$id_str); sum(is.na(idx))
 cat( "out of ", length(tw_ids), "which are not available from API", " only ",sum(is.na(idx)), "are not contained in the database")
 idx1 <- match(tweets_ids, tweetsFromHadoop$id_str); 
-cat( "out of ", length(tweets_ids), " only ",sum(is.na(idx1)), "are not contained in the database") 
+cat( "out of ", length(tweets_ids), " only ", sum(is.na(idx1)), "are not contained in the database") 
 
 names(tweetsFromHadoop)[12] <-"place_country"
 names(data.df)

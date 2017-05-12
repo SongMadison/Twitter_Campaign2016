@@ -61,14 +61,16 @@ edgeList_fromHadoop <- function(data_folder){
   n_cores = detectCores()
   cl <- makeCluster(floor(n_cores / 2))
   registerDoParallel(cl)
-  edges_all<- foreach ( i =1 :nbreaks, .combine = rbind) %dopar% {
-    idx_start <- interval*(i-1)+1; idx_end = interval*i
-    if (i == nbreaks){ idx_end = length(files) }
-    dat <- NULL
-    for(j in idx_start:idx_end){
-      filepath <- paste0(data_folder, files[j])
-      dat <- c(dat, readLines(filepath))
-    }
+  edges_all  <- 
+    foreach ( i =1 :nbreaks, 
+              .combine = rbind) %dopar% {
+        idx_start <- interval*(i-1)+1; idx_end = interval*i
+        if (i == nbreaks){ idx_end = length(files) }
+        dat <- NULL
+        for(j in idx_start:idx_end){
+          filepath <- paste0(data_folder, files[j])
+          dat <- c(dat, readLines(filepath))
+        }
     dat1 <- do.call("rbind", lapply(dat, function(x) unlist(strsplit(x, '\t')))  )
     dat2 <- data.frame(dat1, stringsAsFactors = F)
     colnames(dat2) <- headers
@@ -86,8 +88,8 @@ write.csv(edgeList2, file = "../data/trump_tweets/edgelist_fromHadoop.csv")
 
 
 tweets_ids <- unique(edgeList2$status_id_str)
-getStatuses(tweets_ids, "../data/trump_tweets/tweets_fromHadoop.json",oauth_folder ="./credentials/credential_mixed/")
-data.df <- jsonlite::fromJSON(data.json, simplifyDataFrame= T)
+#getStatuses(tweets_ids, "../data/trump_tweets/tweets_fromHadoop.json",oauth_folder ="./credentials/credential_mixed/")
+
 data.str <- readLines("../data/trump_tweets/tweets_fromHadoop.json")
 data.json <- paste0('[', paste0(data.str, collapse= ",") , ']')
 data.df <- jsonlite::fromJSON(data.json, simplifyDataFrame= T)

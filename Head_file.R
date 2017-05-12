@@ -1,5 +1,5 @@
 ## set the library path
-.libPaths(c("/afs/cs.wisc.edu/u/s/o/songwang/R/x86_64-pc-linux-gnu-library/3.3","~/R/Rlibs_ubuntu/") ) 
+
 
 #'/afs/cs.wisc.edu/u/s/o/songwang/R/x86_64-redhat-linux-gnu-library/3.2’ for desk11, bigmem03
 
@@ -22,9 +22,17 @@ Packages <- c(
   'randomForest', 
   'stats',
   'xts',
-  "data.table", "Matrix", "tm", "ggplot2", 'jsonlite',
-     'irlba', 'igraph', 'smappR', 'wordcloud', 
-    'xlsx'
+  "data.table", 
+  "Matrix", 
+  "tm", 
+  'jsonlite',
+     'irlba', 
+  'igraph', 
+  'smappR', 
+  'tidyverse',
+  'wordcloud', 
+    'xlsx',
+  'doParallel'
 )
 #'rARPACK'
 ## For loop for requiring packages and installing them if something doesnt exist
