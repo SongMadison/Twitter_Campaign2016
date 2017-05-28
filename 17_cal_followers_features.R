@@ -16,9 +16,7 @@ segments_with_label <- read.xlsx('../results_following/Trump_followers_three_sta
                                  sheetIndex = 8)
 segements_labels <- segments_with_label$cluster_label[1:50]
 
-
-
-# retweeting
+# retweeting result
 load("../data/friends_info/edgelist_Feb27/RData/retweet_A3.RData")  
 #A, users, tweets #note, the graph will be covered
 users_cluster_retweeting <- read.csv("../results_retweeting/result3/user_cluster.csv", 
@@ -57,7 +55,7 @@ tmp2
 if (length(tmp2) >0) {
   users_cluster_retweeting <- users_cluster_retweeting[-tmp2,]
   A <- A[-tmp2,]
-  }
+}
 
 
 
@@ -97,11 +95,10 @@ followers_info$retweet_trump_count <- rep(NA, nrow(followers_info))
 followers_info$retweet_trump_count[-idx_retweeting] <- rowSums(A)
 
 
-
 #tweets - time distribution
 dates <- seq(from = as.Date('2015-06-01'), to =as.Date('2016-11-09'), by = 'month')
 dates <- c(dates, as.Date('2016-11-09'))
-ids <- id_by_interval(tweets_with_cluster$created_at, dates)
+ids <- id_by_interval(tweets_with_cluster$created_at, as.POSIXct(dates))
 Z_tweets_time <- membershipM(ids)
 Z_followers_time_part <- A%*%Z_tweets_time
 dim(Z_followers_time_part)
@@ -127,7 +124,7 @@ colnames(Z_followers_topics) <- matrix(topics_info$cluster_label)
 followers_info <- data.frame(followers_info, Z_followers_topics)
 
 
-write.csv(followers_info, file =paste0(ResultPath,"followers_info_upated.csv"), row.names = F)
+write.csv(followers_info, file = paste0(ResultPath,"followers_info_upated.csv"), row.names = F)
 
 
 
@@ -135,108 +132,6 @@ write.csv(followers_info, file =paste0(ResultPath,"followers_info_upated.csv"), 
 
 
 
-if(FALSE){
-  # ------------------------- update cluster_summary.csv -------------------
-  keyfriends <- read.csv(paste0(ResultPath,"keyfriends_k50_40.csv"))
-  #str(keyfriends)
-  cluster_features <- keyfriends[seq(1,2000,by = 40),c(1:3)]; rownames(cluster_features) <- 1:50 # id, size, trump_ratio
-  #1-cluster_id, 
-  #2-cluster_size
-  #3-trump_ratio; score of avarage trump following rate 
-  #-- weighted by column and rows, over the grand mean
-  
-  #variable types
-  followers_info$time_order <- as.numeric(followers_info$time_order)
-  followers_info$retweet_trump <- as.numeric(followers_info$retweet_trump)
-  followers_info$cluster <- as.factor(followers_info$cluster)
-  followers_info$cluster <- factor(followers_info$cluster,levels = 1:50, labels = c(paste0('0',1:9),10:50))
-  
-  
-  # time order in each cluster
-  lm.timeorder <- lm(time_order ~ cluster -1, data = followers_info)
-  lm.timeorder$coefficients
-  plot(1:50, lm.timeorder$coefficients/1e6)
-  cluster_features$'time_order-million' <- lm.timeorder$coefficients/1e6
-  
-  
-  ## some other cluster features -- id, clustersize, trump_Ratio, top40(friends screen-names)
-  k = 50; top =40
-  sns <- character(50)
-  for (i in 1:k) {
-    sns[i] <- paste0(keyfriends$screen_name[1:top+(i-1)*top],collapse = ',')
-  }
-  cluster_features$'keyfriends_sns' <- sns
-  
-  
-  ## add retweet count - over time each month
-  lm.trump <- lm(retweet_trump ~ cluster -1, data = followers_info)
-  lm.trump$coefficients
-  plot(1:50, lm.trump$coefficients)
-  cluster_features$'retweet-count' <- lm.trump$coefficients
-  
-  ## add retweet retweet ratio
-  cluster_x_retweet <- table(followers_info$cluster, !is.na(followers_info$retweet_trump))
-  cluster_features$'retweet-per-person' <- round( cluster_x_retweet[,"TRUE"]/rowSums(cluster_x_retweet),digits = 3)
-  plot(cluster_features$'retweet-per-person')
-  
-  # time of the retweets
-  # partition of tweets based on the following clusters
-  retweet_cluster <- followers_info$cluster[match(rownames(A), followers_info$id_str)]
-  table(retweet_cluster, exclude = NULL)
-  A1 <- A[!is.na(retweet_cluster),]; #remove followers belong to 'NA'
-  retweet_cluster <- as.numeric(retweet_cluster)[!is.na(retweet_cluster)]
-  length(retweet_cluster)
-  dim(A1)
-  Z <- membershipM(retweet_cluster)
-  
-  #time_id - year-month
-  year.months <- gsub("^(\\d{4}-\\d{2}).*","\\1", tweets$created_at)
-  label.year.month <- unique(year.months)
-  # year.month.ids <- match(year.months, label.year.month)
-  # year.months[is.na(year.month.ids)] <- "2015-00"; table(year.months)
-  # label.year.month <- c("2015-00",sort(label.year.month))
-  time_cluster <- match(year.months,label.year.month)
-  Y <- membershipM(time_cluster)
-  
-  #cluster x year.month
-  clus_x_year.month <- t(Z) %*% A1 %*% Y[,ncol(Y):1]
-  clus_x_year.month <- as.matrix(clus_x_year.month )
-  colnames(clus_x_year.month) <- paste0('Y-',label.year.month[ncol(Y):1])
-  cluster_features <- data.frame(cluster_features, data.frame(clus_x_year.month))
-  
-  write.csv(cluster_features, file = paste0(ResultPath, "cluster_summary.csv"), row.names = F)
-  
-  
-  #cluster x tweets  - > most frequent tweets
-  freqZ <- t(Z) %*% A1
-  ids <- apply(freqZ, 1, function(x) order(-x)[1:10])
-  ids <- as.vector(ids)
-  freq_tweets <- data.frame(clusterid = rep(1:50, each =10),clust_size = rep(table(retweet_cluster), each =10), tweets[ids,])
-  write.csv(freq_tweets, file =paste0(ResultPath,"most_freq_tweets.csv"), row.names = F)
-  
-  
-  
-  
-  segment_name_file <- read.xlsx("../results_following/Trump_followers_three_stages.xlsx", 
-                                 sheetIndex = 8)
-  category_names <- segment_name_file$cluster_label
-  tmp <- unique(category_names)
-  category_names[category_names %in% tmp [c(2,3,5,6,7,10,11,15,16,17,20,22,25,26,28,29,30,31)]] <-"other countries" 
-  unique(category_names)
-  
-  category_names <- c("Trump supporters",   "conservatives", "anti-feminist conservatives", 
-                      "liberals", "NRA members", "far left", "non-political","religious",
-                      "journalists","Miami", "California tech scene","news junkies" ,
-                      "other countries","mixed")                                                       
-  
-  cluster_info <- read.csv("../results_following/result3/cluster_summary.csv", colClasses = c("character"))
-  cluster_info$cluster_name <- segment_name_file$Pre
-  cluster_info$category_name <- category_names[1:50]
-  cluster_info <- cluster_info[,c(1,ncol(cluster_info)-1,ncol(cluster_info), 2:(ncol(cluster_info)-2))]
-  write.csv(cluster_info, file ="../results_following/result3/cluster_summary.csv", row.names = F)
-  
-  
-  
-}
+
 
 

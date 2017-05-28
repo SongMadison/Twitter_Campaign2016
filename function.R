@@ -58,6 +58,7 @@ downloadTweets <- function(SNs, startIdx, endIdx, output_folder, oauth_folder, l
 }
 
 
+#transform json files, save as csv
 processTweets <- function( json_folder, output_folder){
   
   if (!file.exists(output_folder)) { dir.create(output_folder)}
@@ -102,6 +103,7 @@ processTweets_time <- function(csv_folder, start_time = NULL, end_time, n_cores 
   #end_time = '2016-11-09 00:00:00'
   # helper function
   getTweets <- function(filepath){
+    dat <- read.csv(filepath, colClasses = c("character"), stringsAsFactors = F)
     idx1 <- NULL; idx2 <- NULL
     if (!is.null(start_time)){
       idx1 <- which( dat$created_at < start_time)  
@@ -132,6 +134,42 @@ processTweets_time <- function(csv_folder, start_time = NULL, end_time, n_cores 
   return (tweets)
 }
 
+#extract from tweets, user_id_str, tweets_id_str,  created_at, text,
+processTweets_time_simplify <- function(csv_folder, start_time = NULL, end_time, n_cores = 1  ){
+  #end_time = '2016-11-09 00:00:00'
+  # helper function
+  getTweets <- function(filepath){
+    dat <- read.csv(filepath, colClasses = c("character"), stringsAsFactors = F)
+    dat <- dat[,"user"]
+    idx1 <- NULL; idx2 <- NULL
+    if (!is.null(start_time)){
+      idx1 <- which( dat$created_at < start_time)  
+    }
+    if (!is.null(end_time)){
+      idx2 <- which( dat$created_at > end_time)
+    }
+    idx <- unique(c(idx1,idx2))
+    if (length(idx) ==0){
+      tweets = dat
+    }else{
+      tweets <- dat[-idx,]
+    }
+    return(tweets)
+  }
+  
+  files <- list.files(csv_folder)
+  cl <- makeCluster(n_cores)
+  registerDoParallel(cl)
+  tweets  <- foreach (i = 1:length(files),
+                      .combine = rbind) %dopar% {
+                        filepath <- paste0(csv_folder, files[i])
+                        
+                        getTweets(filepath)
+                        
+                      }
+  stopCluster(cl)
+  return (tweets)
+}
 # ----- extract tweets are related to Trump (replies, or )
 #return a single csv file.
 processTweets_people<- function(csv_folder, user_id_str, n_cores = 6){

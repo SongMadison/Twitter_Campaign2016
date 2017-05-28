@@ -29,10 +29,7 @@ Packages <- c(
      'irlba', 
   'igraph', 
   'smappR', 
-<<<<<<< HEAD
   'tidyverse',
-=======
->>>>>>> 52f4672e6a9fe47a8bcf6e2b89c601facb0d3cc0
   'wordcloud', 
     'xlsx',
   'doParallel'
