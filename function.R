@@ -345,7 +345,7 @@ simplifyTwitterDF <- function(dat) {
 
 
 #---------------------------- text cleaning --------------------------------------
-removeMostPunctuation<-
+removeMostPunctuation <-
   function (x, preserve_intra_word_dashes = FALSE) 
   { ## keep # and @, intra -
     rmpunct <- function(x) {
@@ -723,7 +723,7 @@ balloon.plot <- function(A, xlabel = NULL, ylabel = NULL , main = NULL, text = T
   if(text){
     if (length(which(A<0))>0){
       #p1 <- p + geom_point(aes(size = value, colour = sign)) +xlab('')+ylab('')
-      p1 <- p + geom_text(aes(label = value, colour = sign, size =value))
+      p1 <- p + geom_text(aes(label = value, colour = sign, size = value))
     }else{
       #p1 <- p + geom_point(aes(size = value)) +xlab('')+ylab('')
       p1 <- p + geom_text(aes(label = value,  size = value))
@@ -739,8 +739,8 @@ balloon.plot <- function(A, xlabel = NULL, ylabel = NULL , main = NULL, text = T
   }
 
   p1 + theme(axis.text.x = element_text(angle = 45, hjust = 1))+
-        theme(axis.text.y = element_text(angle = 0, hjust = 1))+
-        ggtitle(main) +xlab("")+ylab("") + theme(plot.title = element_text(hjust = 0.5))
+      theme(axis.text.y = element_text(angle = 0, hjust = 1))+
+      ggtitle(main) +xlab("")+ylab("") + theme(plot.title = element_text(hjust = 0.5))
 }
 
 
@@ -836,6 +836,9 @@ myround <-
     tmp
   }
 
+#select columns for each clusters such that $sqrt{p_i} - \sqrt{p_{-i}}$ is maximized
+#X is the features of these , 
+#top, number of features to be selected
 
 select_columns <- function(X, top, labs, method ="distinct", verbose = F){
   k = length(unique(labs))
@@ -862,6 +865,11 @@ select_columns <- function(X, top, labs, method ="distinct", verbose = F){
 }
 
 
+# select the indices of rows close to cluster centers.
+# paras:
+# X is the features matrix n times p
+# labs taking vaules 1,2,3,...,k
+# top number of features to be selected
 select_rows <- function(X, top, labs, method = "center", verbose = F){
   
   k = length(unique(labs))
@@ -871,16 +879,16 @@ select_rows <- function(X, top, labs, method = "center", verbose = F){
     centers <- matrix(0, ncol = ncol(X), nrow = k)
     for( i in 1:k) centers[i,] <- colMeans(X[labs == i,])
     for( i in 1:k){
-      s <- X[bip.result$col == i,] %*% as.matrix(centers[i,], ncol =1)
-      idx<- order(-s)[1:10]
-      selected_idx <- c(selected_idx, idx) 
-      if (verbose) scores =  c(scores, s [idx])
+      s <- X[labs == i,] %*% as.matrix(centers[i,], ncol =1) #inner product with centers[i,]
+      idx<- order(-s)[1:top]
+      selected_idx <- c(selected_idx, which(labs ==i)[idx]) 
+      if (verbose) scores =  c(scores, s[idx])
     }
     res = list()
     res$cluster = rep(1:k, each = top)
-    res$sample_id = selected_idx
+    res$idx = selected_idx
     if(verbose){ res$scores=myround(scores,4)}
-    return(res)
+    return(data.frame(res))
   }
 }
 

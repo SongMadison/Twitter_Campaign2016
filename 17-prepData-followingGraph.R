@@ -160,3 +160,58 @@ Min.   1st Qu.    Median      Mean   3rd Qu.      Max.
 > mean(dr)
 1621.475
 '
+
+
+## network among 377725 followes themselves. -- "../data/friends_info/edgelist_Feb27/RData/adj_followers_ego.RData"
+
+#adjlistall <- readLines("../data/friends_info/edgelist_Feb27/originalData/adjlist_all.txt")
+load("../data/friends_info/edgelist_Feb27/originalData/adjlist_all.RData") #377809 -> 377725 (delete 84)
+library(parallel)
+sns <- unlist(mclapply(adjlist_all, function(x) gsub("(.*?),.*", replace = "\\1", x), mc.cores = 10))
+
+idx <- match(followers$screen_name, sns)
+stopifnot(sum(is.na(idx)) == 0)
+
+sub_ids = followers$id_str  
+idx <- match(followers$screen_name, sns) 
+adjlist_str <- adjlist_all[idx]
+
+adj_list <-  mclapply(adjlist_str, FUN =function(x) strsplit(x, split = ',') , mc.cores=5) 
+#encounter various problems
+#Error in sendMaster(try(lapply(X = S, FUN = FUN, ...), silent = TRUE)) : 
+#  long vectors not supported yet: fork.c:376
+
+#adj_list = lapply(adjlist_str, function(x) strsplit(x, split = ',')) #single thread
+adj_list1 = mclapply(adj_list, function(x) {
+  xx = unlist(x); idx = match(sub_ids, xx);
+  xx[idx[!is.na(idx)]] #keep friends in sub_ids only. return chr(0) if follows no people; 
+}, mc.cores = 5)
+adj_list_ids <- mclapply(adj_list1, function(x){
+  xx = unlist(x)
+  match(xx, sub_ids)
+}, mc.cores = 5)
+save(adj_list_ids, sns, file = "../data/friends_info/edgelist_Feb27/RData/adj_followers_ego.RData")
+
+
+
+
+
+#create a full graph among 377725 followers and the accounts followed by 10 of them 
+#324933 followers, 9,118,691 friends, links 525,894,469
+#this is created from python, one big graph.
+load("../data/friends_info/edgelist_Feb27/originalData/edgelist_all.RData")
+el<- as.matrix(edgelist_all)
+rm(edgelist_all)
+library(igraph)
+library(Matrix)
+rr <- unique(el[,1])
+cc <- unique(el[,2])
+i_set <- match(el[,1], rr)
+j_set <- match(el[,2], cc)+length(rr) # index for c(rr,cc)
+rm(el)
+save(rr, cc, i_set, j_set, file = "../data/friends_info/edgelist_Feb27/RData/full_graph.RData")
+q(); R
+
+
+
+

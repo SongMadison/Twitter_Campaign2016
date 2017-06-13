@@ -7,8 +7,8 @@ library(ggplot2)
 theme_update(plot.title = element_text(hjust = 0.5))
 library(data.table)
 
-load("../data/friends_info/edgelist_Feb27/RData/A1.RData")
-ResultPath <- paste0("../results_following/", "result1/")
+load("../data/friends_info/edgelist_Feb27/RData/A3.RData")
+ResultPath <- paste0("../results_following/", "result3/")
 
 if(!file.exists(ResultPath)){ 
            dir.create(ResultPath)
@@ -57,7 +57,6 @@ scree.plot <- ggplot(data = data.frame(x = 1:length(svd_L$d), y = svd_L$d), mapp
 ######################## some parameters #################################
 k = 50  # n clusters
 top = 40 # 40 select features
-output_file <- paste0(ResultPath, "keyfriends_k50_40.csv")
 savePath <- paste0(ResultPath, "analysis.RData")
 ##########################################################################
 
@@ -85,12 +84,39 @@ head(clustering)
 # representative columns features
 
 
+#copied from email exchange with Chris Wells, on June 1, 2017
+deplorables_str <- c("Mike Cernovich: @Cernovich"
+, "Richard Spencer: @RichardBSpencer"
+,"Daily Stormer: @rudhum"
+,"David Duke: @DrDavidDuke"
+,"Paul Joseph Watson: @PrisonPlanet"
+,"Alex Jones: @RealAlexJones"
+,"Breitbart: @BreitbartNews"
+,"Paul Ray Ramsey: @ramzpaul"
+,"Gen. Robert E Lee: @Suthen_boy"
+,"Ann Kelly: @LadyAodh")
+screen_name <- gsub(".*@(.*)", '\\1', deplorables_str)
+names <- gsub("(.):.*", '\\', deplorables_str)
+deplorables <- data.frame(screen_name, names)
+
+#probportion of followers
+deplorable_features <- matrix(0, nrow = k, nrow(deplorables))
+idx <- match(deplorables$screen_name, colnames(A))
+for (i in 1:k){
+  deplorable_features[i,which(!is.na(idx))] <- colMeans(A[km_row$cluster==i, idx[!is.na(idx)]])
+}
+
+colnames(deplorable_features) <- paste0(deplorables$screen_name, '-', 
+                    friends_info$followers_count[match(deplorables$screen_name, friends_info$screen_name)])
+deplorable_features <- data.frame(cluster_id = 1:k, deplorable_features)
+
+
 keyfriends_sns <- matrix("", top, k)
 trump_score <- numeric(k)
 score1 <- matrix(0, top, k)
 score2 <- matrix(0, top, k)
 for(i in 1:k){
-   
+  
    c_i0 <- colMeans(L)
    c_i1 <- colMeans( L[which(km_row$cluster==i), ] )
    c_i2 <- colMeans( L[which(km_row$cluster!=i), ] )
@@ -142,10 +168,49 @@ result50 <- result50[,idx]
 
 
 
+#------------------------ update followers_info.csv ---------------------
+followers_info <- read.csv("../data/friends_info/edgelist_Feb27/samp3_info.csv", colClasses = c("character"))
+headers <- c("id_str","screen_name", "name","description","created_at",
+             "lang","location","time_zone", "verified",
+             "favourites_count","followers_count", "friends_count","listed_count", "statuses_count")
+followers_info <- followers_info[,headers]
+
+#add time order to follow Trump
+ids <- readLines("../data/friends_info/edgelist_Feb27/ids_13M_cleaned.txt")
+N_ids = length(ids) #12998006 # after remove  some duplicates
+idx <- match(followers_info$id_str, ids)
+stopifnot(sum(is.na(idx)) == 0)
+followers_info$time_order <- N_ids - idx
+
+#add cluster_id 
+#load("../results/result3/analysis.RData")  #L, svd_L, km_row, result50,
+followers_info$cluster<-rep(NA, nrow(followers_info))
+followers_info$cluster[-idx_following] <- km_row$cluster
+table(followers_info$cluster,exclude = F)
+
+
+#add friend_count in the following graph
+followers_info$friends_count_samp <- rep(NA, nrow(followers_info))
+followers_info$friends_count_samp[-idx_following] <- rowSums(L>0)
+
+
+
+#--------- select some representative followers(rows) in clusters --------
+#load("../results_following/result1/analysis.RData")
+selected_followers <- select_rows(svd_L$u,top = 40,labs = km_row$cluster,verbose = T)
+selected_followers$screen_name = rownames(L)[selected_followers$idx]
+
+
+
 #--------------------ouput---------------------
 clustering <- data.frame(screen_name= rownames(A), cluster = km_row$cluster)
 write.csv(clustering, file = paste0(ResultPath,"membership.csv"),row.names = F)
-write.csv(result50, file =output_file, row.names = F)
+write.csv(result50, file = paste0(ResultPath, "keyfriends_k50_40.csv"), row.names = F)
+write.csv(followers_info, file = paste0(ResultPath,"followers_info.csv"), row.names = F)
+write.csv(selected_followers, file = paste0(ResultPath,"selected_followers.csv"), row.names = F)
+write.csv(deplorable_features, file =paste0(ResultPath, "deplorable_features.csv"), row.names = F)
+
+
 
 pdf(paste0(ResultPath,"EDA.pdf"), height = 6, width = 8)
 pc.hist

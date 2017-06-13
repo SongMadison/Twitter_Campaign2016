@@ -1,10 +1,18 @@
 
-rm(list =ls())
+# combine results from 
+        # retweeting network, 
+        # following network
+        # topic modeling about Trump tweets
+        # tweets from their timeline  -- added in combined manner in cal_cluster_features.R
+# graph 1,2,3
 
+
+rm(list =ls())
 library(Matrix)
 library(xlsx)
 source("function.R")
-#graph 3
+
+## identify which graph, 1, 2, 3
 ResultPath <- "../results_following/result3/"
 followers_info <- read.csv("../data/friends_info/edgelist_Feb27/samp3_info.csv", 
                            colClasses = c("character"))
@@ -59,8 +67,10 @@ if (length(tmp2) >0) {
 
 
 
+
+
 #------------------------ update followers_info.csv ---------------------
-#followers_info <- read.csv("../data/friends_info/edgelist_Feb27/samp3_info.csv", colClasses = c("character"))
+followers_info <- read.csv("../data/friends_info/edgelist_Feb27/samp3_info.csv", colClasses = c("character"))
 headers <- c("id_str","screen_name", "name","description","created_at",
              "lang","location","time_zone", "verified",
              "favourites_count","followers_count", "friends_count","listed_count", "statuses_count")
@@ -80,22 +90,25 @@ followers_info$cluster[-idx_following] <- km_row$cluster
 table(followers_info$cluster,exclude = F)
 
 
-#add friends in the following graph
+#add friend_count in the following graph
 followers_info$friends_count_samp <- rep(NA, nrow(followers_info))
 followers_info$friends_count_samp[-idx_following] <- rowSums(L>0)
 
 
-#features calculated based retweeting graph
 
-#add the number of trump's tweets, retweeted by this follower
+ 
+
+#features calculated based retweeting graph analysis
+#add cluster in the retweeting pattern.
 followers_info$retweet_cluster <- rep(NA, nrow(followers_info))
 followers_info$retweet_cluster[-idx_retweeting]  <- users_cluster_retweeting$cluster
 
+#add the number of trump's tweets, retweeted by this follower
 followers_info$retweet_trump_count <- rep(NA, nrow(followers_info)) 
 followers_info$retweet_trump_count[-idx_retweeting] <- rowSums(A)
 
 
-#tweets - time distribution
+#tweets - time distribution for the Trump's tweets retweeted by this person
 dates <- seq(from = as.Date('2015-06-01'), to =as.Date('2016-11-09'), by = 'month')
 dates <- c(dates, as.Date('2016-11-09'))
 ids <- id_by_interval(tweets_with_cluster$created_at, as.POSIXct(dates))
@@ -111,8 +124,6 @@ followers_info <- data.frame(followers_info, Z_followers_time)
 
 
 
-
-
 #followers x topics
 Z_tweets_topics <- membershipM(tweets_with_cluster$cluster_id)
 Z_followers_topics_part <- A%*%Z_tweets_topics
@@ -124,7 +135,8 @@ colnames(Z_followers_topics) <- matrix(topics_info$cluster_label)
 followers_info <- data.frame(followers_info, Z_followers_topics)
 
 
-write.csv(followers_info, file = paste0(ResultPath,"followers_info_upated.csv"), row.names = F)
+
+#write.csv(followers_info, file = paste0(ResultPath,"followers_info_upated.csv"), row.names = F)
 
 
 

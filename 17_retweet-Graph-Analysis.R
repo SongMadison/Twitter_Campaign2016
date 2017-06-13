@@ -16,7 +16,6 @@ if (!file.exists(ResultPath)) dir.create(ResultPath)
 
 
 
-
 # ---------------------------------------- retweeet network ---- 
 dim(A);   #8220 3948
 stopifnot(sum(is.na(match(rownames(A), users$id_str))) ==0)
