@@ -28,7 +28,6 @@
 
 #Rmarkdown
 *.html
-*.Rmd
 
 
 0_credential.R
