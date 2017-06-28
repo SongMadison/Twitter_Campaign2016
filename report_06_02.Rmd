@@ -1,35 +1,39 @@
 ---
-title: "Trump Twitter Followers"
-author: "Song Wang"
-date: "May 31, 2017"
-output: html_document
+title: "Segmenting Trump Twitter Followers Using Spectral Clustering"
+date: "`r Sys.Date()`"
+output:
+  html_document: default
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-rm(list =ls())
+knitr::opts_chunk$set(fig.width=12, fig.height=8, fig.path='Figs/',
+                      echo=FALSE, warning=FALSE, message=FALSE)
 
 library(tidyverse) #include ggplot2, dyplyr, readr, tydyr
-library(dygraphs) # dynamic graph
+#library(dygraphs) # dynamic graph
 library(xts)
 library(Matrix)
+library(data.table)
+
 theme_update(plot.title = element_text(hjust = 0.5))
 
+source("function.R")
 ```
 
 
-```{r process data, include=FALSE, eval = FALSE}
-#Read in followers
-followers <- read.csv("../results_following/followers_with_cluster_info.csv", colClasses = c("character"))
+```{r process data, include=FALSE}
+followers <- data.table::fread("../results_following/followers_with_cluster_info.csv", colClasses = c("character"))
+followers <- data.frame(followers)
 
 #correct variable types
-#factor
-followers$cluster <- as.factor(as.numeric(followers$cluster))
+followers$cluster <- as.factor(as.numeric(followers$cluster)) #factor
 #data time
 #followers$created_at <- as.POSIXct(followers$created_at, format = "%a %b %d %H:%M:%S %z %Y")
 followers$created_at <- as.POSIXct(followers$created_at)
 followers$first_date_timeline <- as.Date(followers$first_date_timeline)
 followers$last_date_timeline <- as.Date(followers$last_date_timeline)
+
 #non-numerical
 non_numerical_cols <- c("period","cluster", "clust_label","clust_cat","id_str", "screen_name", 
                         "name",  "description","created_at", "lang",
@@ -37,35 +41,38 @@ non_numerical_cols <- c("period","cluster", "clust_label","clust_cat","id_str", 
 non_numerical_ids <- match(non_numerical_cols, names(followers))
 for( i in 1:ncol(followers)){
   if (!(i %in% non_numerical_ids)){
-    followers[,i] <- as.numeric(followers[,i]) 
+    followers[[i]] <- as.numeric(followers[[i]]) 
+    #followers[which(is.na(followers[[i]])),i] <- 0
+    cat("i=", i ,"\n")
   }
 }
 rm(non_numerical_cols,non_numerical_ids)
 
+# missing values for pg2, pg2_personalized should be NA
+# followers[['pg2']][which(followers[['pg2']] == 0)] <- NA
+# followers[['pg2_personalized']][which(followers[['pg2_personalized']] == 0)] <- NA
+# followers[['pg1_core3']][which(followers[['pg1_core3']] == 0)] <- NA
+# followers[['pg1_p_core3']][which(followers[['pg1_p_core3']] == 0)] <- NA
 
-#reorder
-tmp <- unique(followers$clust_cat)
-new_levels <- c("Trump supporters","conservatives","anti-feminist conservatives","liberals","news&regional",
-               "international","non-political", "other countries")
-followers$clust_cat <- as.factor(match(followers$clust_cat, new_levels))
-followers$clust_cat <- factor(followers$clust_cat, levels = 1:length(new_levels), labels = new_levels)  # 1:7
+#rename and reorder
+followers$clust_cat[followers$clust_cat=="anti-feminist conservatives"] = "men's interests"
+followers$clust_cat[followers$clust_cat == "news&regional"] = "news & regional"
+followers$clust_cat <- factor(followers$clust_cat, levels = c("Trump supporters", "conservatives", "news & regional", "international", "men's interests", "liberals",  "non-political", "other countries"))
 table(followers$clust_cat)
 
-
-tmp <- unique(followers$period)
-new_levels <- c("before announcement",  "before primary",   "before election" ); match(tmp, new_levels)
-followers$period <- as.factor(match(followers$period, new_levels))
-followers$period <- factor(followers$period, 1:3, new_levels)
+followers$period[followers$period == "before announcement"] = "pre announcement"
+followers$period[followers$period == "before primary"] ="primary election"
+followers$period[followers$period == "before election"] = "general election"
+followers$period = factor(followers$period, levels = c("pre announcement", "primary election", "general election"))
 table(followers$period)
-
-save(followers, file ="../report/2017-05-27/report_0626.RData")
 
 ```
 
-
 ## Introduction
 first version May 31, 2017
-updated on Jun 1, Jun 12
+updated on Jun 1, Jun 12, June 26
+
+
 
 
 
@@ -79,7 +86,7 @@ We calculate the pagerank scores of each Trump followers, use the verified accou
 
 Two pagerank scores presented here
 
-1.Pagerank1 from the network among 377725 followers themseleves.
+1.Pagerank1 from the network among **377725** followers themseleves.
 
 * Network statistics: 377725 nodes, 20766474 edges, mean degree = 54.98.
    **65.8%** have zero out degree(following nobody); **18.2%** have zero in degree; **12.6%** have zero degrees
@@ -95,16 +102,17 @@ Two pagerank scores presented here
 
 * Page rank has more very low scores (1e-7 (~12%, ~2%), 1e-6.5 (37%, 15%)). See the plot below.
 
-```{r loading data, echo =FALSE }
+```{r loading data}
 #load("../report/2017-05-27/report_0601.RData")
-load("../report/2017-05-27/report_0626.RData")
+#load("../report/2017-05-27/report_0626.RData")
 followers$clust_cat <- addNA(followers$clust_cat)
 levels(followers$clust_cat)[9] <- "NA"
-source("function.R")
+table(followers$clust_cat)
+table(followers$period)
 ```
 
 
-```{r echo=FALSE,  message=FALSE, warning=FALSE, fig.width= 8, fig.height=6}
+```{r}
 p0 <- followers %>% group_by(period, clust_cat) %>% summarise(count = n()) %>% 
   ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
   geom_bar(stat = "identity" ) +
@@ -116,10 +124,9 @@ p0 <- followers %>% group_by(period, clust_cat) %>% summarise(count = n()) %>%
 ### Two pageranks
 
 
-
 **pagerank 1 (w/o personalization)**
 
-```{r, echo =FALSE, warning=FALSE, fig.width=8, fig.height=6}
+```{r}
 p11 <- followers %>% ggplot(aes(x = log10(pg1))) + stat_ecdf(geom="step", aes(group = verified, color = verified )) +labs(x= "pagerank (in log10)", y = "cumulative probability") + ggtitle("pagerank1")
 
 p12 <- followers %>% ggplot(aes(x = log10(pg1_personalized))) + stat_ecdf(geom="step",aes(group = verified, color = verified )) +  labs(x= "pagerank (in log10)", y = "cumulative probability") + ggtitle("pagerank1 personalized")
@@ -135,101 +142,130 @@ multiplot(p11, p12,  cols = 2)
 ```
 
 
+```{r}
+p11_1 <- followers %>% ggplot(aes(x = log10(pg1_core3))) + stat_ecdf(geom="step",aes(group = verified, color = verified )) +  labs(x= "pagerank (in log10)", y = "cumulative probability") + ggtitle("pagerank1 on 3-core")
 
-
-```{r, echo =FALSE, warning=FALSE, fig.width=8, fig.height=6}
-p11_1 <- followers %>% ggplot(aes(x = log10(pg1_core3))) + stat_ecdf(geom="step",aes(group = verified, color = verified )) +  labs(x= "pagerank (in log10)", y = "cumulative probability") + ggtitle("pagerank1")
-
-p12_1 <- followers %>% ggplot(aes(x = log10(pg1_p_core3))) + stat_ecdf(geom="step",aes(group = verified, color = verified )) +  labs(x= "pagerank (in log10)", y = "cumulative probability") + ggtitle("pagerank1 personalized")
+p12_1 <- followers %>% ggplot(aes(x = log10(pg1_p_core3))) + stat_ecdf(geom="step",aes(group = verified, color = verified )) +  labs(x= "pagerank (in log10)", y = "cumulative probability") + ggtitle("pagerank1 personalized on 3-core")
 multiplot(p11_1, p12_1,  cols = 2)
 ```
 
-
 **pagerank 2 (w/o personalization)**
 
-```{r, echo =FALSE, warning=FALSE, fig.width=8, fig.height=6}
+
+```{r}
 p21 <- followers %>% ggplot(aes(x = log10(pg2))) + stat_ecdf(geom="step",aes(group = verified, color = verified )) + labs(x= "pagerank (in log10)", y = "cumulative probability")+ ggtitle("pagerank2")
+
 p22 <- followers %>% ggplot(aes(x = log10(pg2_personalized))) + stat_ecdf(geom="step",aes(group = verified, color = verified )) +  labs(x= "pagerank (in log10)", y = "cumulative probability") + ggtitle("pagerank2 personalized")
 multiplot(p21, p22, cols = 2) 
 ```
 
 
 
-Next, the plots above indicates (espcially for pagerank1), verified account tend to have high scores. Bots tend to have lower scores, let's look at the followers with lowest 25% of the scores. 
 
-```{r,  echo = FALSE, warning=FALSE, fig.width=8, fig.height=6}
-#68727 minimum values
-p31 <- followers %>% subset( pg1 <= (quantile(pg1, 0.05, na.rm = T)+1e-12)) %>% group_by(period, clust_cat) %>% summarise(count = n()) %>% ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
+Next, the plots above indicates (espcially for pagerank1), verified account tend to have high scores. Bots tend to have lower scores, let's look at the followers with lowest **5%** of the scores (```X <= quantile(X, 0.05, na.rm = T)+1e-10)```). 
+```{r}
+#68727 taking minimum values, using 1e-10 breaking 
+p31 <- followers %>% subset( pg1 <= (quantile(pg1, 0.05, na.rm = T)+1e-10)) %>% group_by(period, clust_cat) %>% summarise(count = n()) %>% ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
   geom_bar(stat = "identity" ) +
   geom_text(size = 3, position = position_stack(vjust = 0.5)) +
   scale_fill_brewer(palette="Spectral")+ggtitle("tail of pg1")
 
-p31_1 <- followers %>% subset(pg1_personalized <= quantile(pg1_personalized, 0.05, na.rm = T)+1e-12) %>% group_by(period, clust_cat) %>% summarise(count = n()) %>% ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
+
+p31_1 <- followers %>% subset(pg1_personalized <= quantile(pg1_personalized, 0.05, na.rm = T)+1e-10) %>% group_by(period, clust_cat) %>% summarise(count = n()) %>% ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
   geom_bar(stat = "identity" ) +
   geom_text(size = 3, position = position_stack(vjust = 0.5)) +
   scale_fill_brewer(palette="Spectral") +ggtitle(paste0("tail of pg1_personalized"))
 
-p32 <- subset(followers, pg2 <= quantile(pg2,0.05, na.rm = T)+1e-12)%>% group_by(period, clust_cat) %>% summarise(count = n()) %>% ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
+
+p32 <- subset(followers, pg2 <= quantile(pg2, 0.05, na.rm = T)+1e-10)%>% group_by(period, clust_cat) %>% summarise(count = n()) %>% ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
   geom_bar(stat = "identity" ) +
   geom_text(size = 3, position = position_stack(vjust = 0.5)) +
   scale_fill_brewer(palette="Spectral")+ggtitle("tail of pg2")
 
-p32_1 <- subset(followers, pg2_personalized <= quantile(pg2_personalized, 0.05, na.rm = T)+1e-12)%>% group_by(period, clust_cat) %>% summarise(count = n()) %>% ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
+
+p32_1 <- subset(followers, pg2_personalized <= quantile(pg2_personalized, 0.05, na.rm = T)+1e-10)%>% group_by(period, clust_cat) %>% summarise(count = n()) %>% ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
   geom_bar(stat = "identity" ) +
   geom_text(size = 3, position = position_stack(vjust = 0.5)) +
   scale_fill_brewer(palette="Spectral")+ggtitle("tail of pg2_personalized")
 
 
-p33 <- subset(followers,followers_count <= quantile(followers_count, 0.05, na.rm = T)+1e-12)%>% group_by(period, clust_cat) %>% summarise(count = n()) %>% ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
-  geom_bar(stat = "identity" ) +
-  geom_text(size = 3, position = position_stack(vjust = 0.5)) +
-  scale_fill_brewer(palette="Spectral")+ggtitle("tail of followers_count")
-
-p34 <- followers %>% 
-  mutate(followers_following = log10((followers_count+1)/(1+friends_count)))%>%
-  subset(followers_following <= quantile(followers_following, 0.05, na.rm = T)+1e-12)%>% 
-  group_by(period, clust_cat) %>% summarise(count = n()) %>% 
-  ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
-  geom_bar(stat = "identity" ) +
-  geom_text(size = 3, position = position_stack(vjust = 0.5)) +
-  scale_fill_brewer(palette="Spectral")+ ggtitle("tail of followers_counts friends_counts ratio")
-
-p35 <- followers %>% 
-  subset(pg1_core3 <= quantile(pg1_core3, 0.05, na.rm = T)+1e-12)%>% 
+p33 <- followers %>% 
+  subset(pg1_core3 <= quantile(pg1_core3, 0.05, na.rm = T)+1e-10)%>% 
   group_by(period, clust_cat) %>% summarise(count = n()) %>% 
   ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
   geom_bar(stat = "identity" ) +
   geom_text(size = 3, position = position_stack(vjust = 0.5)) +
   scale_fill_brewer(palette="Spectral") + ggtitle("tail of pagerank_core3")
 
-p36 <- followers %>% 
-  subset(pg1_p_core3 <= quantile(pg1_p_core3, 0.05, na.rm = T)+1e-12)%>% 
+p33_1 <- followers %>% 
+  subset(pg1_p_core3 <= quantile(pg1_p_core3, 0.05, na.rm = T)+1e-10)%>% 
   group_by(period, clust_cat) %>% summarise(count = n()) %>% 
   ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
   geom_bar(stat = "identity" ) +
   geom_text(size = 3, position = position_stack(vjust = 0.5)) +
   scale_fill_brewer(palette="Spectral") + ggtitle("tail of pagerank_p_core3")
+
+
+p34 <- subset(followers,followers_count <= quantile(followers_count, 0.05, na.rm = T)+1e-10)%>% group_by(period, clust_cat) %>% summarise(count = n()) %>% ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
+  geom_bar(stat = "identity" ) +
+  geom_text(size = 3, position = position_stack(vjust = 0.5)) +
+  scale_fill_brewer(palette="Spectral")+ggtitle("tail of followers_count")
+
+p35 <- followers %>% 
+  mutate(followers_following = log10((followers_count+1)/(1+friends_count)))%>%
+  subset(followers_following <= quantile(followers_following, 0.05, na.rm = T)+1e-10)%>% 
+  group_by(period, clust_cat) %>% summarise(count = n()) %>% 
+  ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
+  geom_bar(stat = "identity" ) +
+  geom_text(size = 3, position = position_stack(vjust = 0.5)) +
+  scale_fill_brewer(palette="Spectral")+ ggtitle("tail of followers_counts friends_counts ratio")
+
+p36 <- followers %>% 
+    mutate(retweet_total = RT_only+ RT_comments)%>%
+    subset(retweet_total >= quantile(retweet_total, 0.95, na.rm = T)+1e-10)%>% 
+  group_by(period, clust_cat) %>% summarise(count = n()) %>% 
+  ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
+  geom_bar(stat = "identity" ) +
+  geom_text(size = 3, position = position_stack(vjust = 0.5)) +
+  scale_fill_brewer(palette="Spectral")+ ggtitle("Right tail of retweet count total")
+
 ```
 
 **The tails part of pagerank1, pagerank2, etc **
 
-```{r tail part of pg1, echo = FALSE, warning=FALSE, fig.width=8, fig.height=6}
+```{r tail part of PageRanks}
+
+# pdf("tail_bots.pdf", onefile = TRUE)
+
 multiplot(p0, p31, cols = 2)
+
 multiplot(p0, p31_1, cols = 2)
 
 multiplot(p0, p32, cols = 2)
+
 multiplot(p0, p32_1, cols = 2)
 
-multiplot(p0,p33, cols = 2)
-multiplot(p0,p34, cols = 2)
-multiplot(p0,p35, cols = 2)
-multiplot(p0,p36, cols = 2)
+multiplot(p0, p33, cols = 2)
+
+multiplot(p0, p33_1, cols = 2)
+
+multiplot(p0, p34, cols = 2)
+
+multiplot(p0, p35, cols = 2)
+
+multiplot(p0, p36, cols = 2)
+
+#dev.off()
+
+
+cor(followers[,c("followers_count", "friends_count", "count_mean_timeline",'pg1', 'pg1_personalized','pg2', 'pg2_personalized','pg1_core3', "pg1_p_core3")], use = 'pairwise.complete.obs')
+
 ```
 
 
 **PageRank Scores within each clusters**
 
-```{r , echo = FALSE, warning=FALSE, fig.width=8, fig.height=6}
+```{r, eval = FALSE}
 followers  %>% ggplot(aes(log10(pg1))) +
   stat_ecdf(geom="step",aes(group= clust_cat, color= clust_cat )) + 
   labs(y = "cumulative probability")+labs(title = "pagerank1")
@@ -256,6 +292,7 @@ followers  %>% ggplot(aes(log10(pg2_personalized))) +
 
 ```
 
+
 ##Part II verifying the clsutering
 
 In this part, I did the following things:
@@ -269,204 +306,26 @@ In this part, I did the following things:
   + the balloon plot show that the similarity among Trump supporters are realatively high.
   
   
-```{r, echo = FALSE, warning=FALSE, fig.width=8, fig.height=6, eval=FALSE }
-#some exploratory on 
-load("../results_following/result3/analysis.RData")
-Z <- membershipM(km_row$cluster)
-NZ <-Z%*% Diagonal(dim(Z)[2],km_row$size^(-1))
-S1 <- t(NZ) %*% L%*%t(L)%*% NZ
-
-load("../results_following/result2/analysis.RData")
-Z <- membershipM(km_row$cluster)
-NZ <-Z%*% Diagonal(dim(Z)[2],km_row$size^(-1))
-S2 <- t(NZ) %*% L%*%t(L)%*% NZ
-
-
-load("../results_following/result1/analysis.RData")
-Z <- membershipM(km_row$cluster)
-NZ <-Z%*% Diagonal(dim(Z)[2],km_row$size^(-1))
-S3 <- t(NZ) %*% L%*%t(L)%*% NZ
-
-save(S1,S2,S3, file = "similarity50.RData")
-```
-
-
-```{r}
-load("similarity50.RData")
-cluster_info <- read.csv("../results_following/cluster_summary.csv")
-cluster_info <- cluster_info[1:50,]
-#cat_names <- unique(cluster_info$clust_cat)
-cat_names <-c("Trump supporters","conservatives","anti-feminist conservatives","liberals","news&regional",
-              "international","non-political", "other countries")
-ord <- NULL
-for( nn in cat_names){
-  ord <- c(ord, which(cluster_info$clust_cat == nn))
-}
-
-  
-heatmap(as.matrix(S1),main = "using original cluster id")
-
-library(sparseAHC)
-hclust = sparseAHC(S1, linkage = "average")
-plot(hclust)
-nclust = 10
-clus = cutree(hclust, nclust )
-for( i in 1:nclust ){
-  cat("i=",i,"\t", cluster_info$cluster_label[which(clus ==i)], "\n")
-}
-
-image(S1) 
-
-S1_sorted <- S1[ord, ord]
-table( match(cluster_info$clust_cat, cat_names))
-# 1  2  3  4  5  6  7  8 
-# 4  6  2  6  1  2 14 15
-ii <- cumsum(table( match(cluster_info$clust_cat, cat_names)))
-balloon.plot(round(S1_sorted*10^4,4),text = F, xlabel = ord, ylabel = ord)+
-  geom_abline(slope =0, intercept = 50-ii[1]+1, color = "red") +
-  geom_vline(xintercept=ii[1], color ="red")+
-  geom_abline(slope =0, intercept = 50-ii[2]+1, color = "red") +
-  geom_vline(xintercept=ii[2], color ="red")+
-  geom_abline(slope =0, intercept = 50-ii[3]+1, color = "red") +
-  geom_vline(xintercept=ii[3], color ="red")+
-  geom_abline(slope =0, intercept = 50-ii[4]+1, color = "red") +
-  geom_vline(xintercept=ii[4], color ="red")+
-  geom_abline(slope =0, intercept = 50-ii[5]+1, color = "red") +
-  geom_vline(xintercept=ii[5], color ="red")+
-  geom_abline(slope =0, intercept = 50-ii[6]+1, color = "red") +
-  geom_vline(xintercept=ii[6], color ="red")+
-  geom_abline(slope =0, intercept = 50-ii[7]+1, color = "red") +
-  geom_vline(xintercept=ii[7], color ="red")+
-  scale_size(range = c(0, 4))+ labs(title = "similariy among clusters (in 1e-4)")
-
-
-```
-
-## before primary
-
-```{r, echo = FALSE, warning=FALSE, fig.width=8, fig.height=6}
-#some exploratory on 
-cluster_info <- read.csv("../results_following/cluster_summary.csv")
-cluster_info <- cluster_info[51:100,]
-#cat_names <- unique(cluster_info$clust_cat)
-cat_names <-c("Trump supporters","conservatives","anti-feminist conservatives","liberals","news&regional",
-              "international","non-political", "other countries")
-ord <- NULL
-for( nn in cat_names){
-  ord <- c(ord, which(cluster_info$clust_cat == nn))
-}
-
-S2_sorted <- S2[ord, ord]
-heatmap(as.matrix(S2),main = "using original cluster id")
-library(sparseAHC)
-hclust = sparseAHC(S2, linkage = "average")
-plot(hclust)
-nclust = 10
-clus = cutree(hclust, nclust )
-for( i in 1:nclust ){
-  cat("i=",i,"\t", cluster_info$cluster_label[which(clus ==i)], "\n")
-}
-
-image(S2)
-
-table( match(cluster_info$clust_cat, cat_names))
-# 1  2  3  4  5  6  7  8 
-# 4  6  2  6  1  2 14 15
-ii <- cumsum(table( match(cluster_info$clust_cat, cat_names)))
-balloon.plot(round(S2_sorted*10^4,4),text = F, xlabel = ord, ylabel = ord)+
-  geom_abline(slope =0, intercept = 50-ii[1]+1, color = "red") +
-  geom_vline(xintercept=ii[1], color ="red")+
-  geom_abline(slope =0, intercept = 50-ii[2]+1, color = "red") +
-  geom_vline(xintercept=ii[2], color ="red")+
-  geom_abline(slope =0, intercept = 50-ii[3]+1, color = "red") +
-  geom_vline(xintercept=ii[3], color ="red")+
-  geom_abline(slope =0, intercept = 50-ii[4]+1, color = "red") +
-  geom_vline(xintercept=ii[4], color ="red")+
-  geom_abline(slope =0, intercept = 50-ii[5]+1, color = "red") +
-  geom_vline(xintercept=ii[5], color ="red")+
-  geom_abline(slope =0, intercept = 50-ii[6]+1, color = "red") +
-  geom_vline(xintercept=ii[6], color ="red")+
-  geom_abline(slope =0, intercept = 50-ii[7]+1, color = "red") +
-  geom_vline(xintercept=ii[7], color ="red")+
-  scale_size(range = c(0, 4)) + labs(title = "similariy among clusters (in 1e-4)")
-
-
-
-
-```
-
-## before election
-
-```{r, echo = FALSE, warning=FALSE, fig.width=8, fig.height=6}
-#some exploratory on 
-cluster_info <- read.csv("../results_following/cluster_summary.csv")
-cluster_info <- cluster_info[101:150,]
-#cat_names <- unique(cluster_info$clust_cat)
-cat_names <-c("Trump supporters","conservatives","anti-feminist conservatives","liberals","news&regional",
-              "international","non-political", "other countries")
-ord <- NULL
-for( nn in cat_names){
-  ord <- c(ord, which(cluster_info$clust_cat == nn))
-}
-S3_sorted <- S3[ord, ord]
-heatmap(as.matrix(S3),main = "using original cluster id")
-library(sparseAHC)
-hclust = sparseAHC(S3, linkage = "average")
-plot(hclust)
-nclust = 10
-clus = cutree(hclust, nclust )
-for( i in 1:nclust ){
-  cat("i=",i,"\t", cluster_info$cluster_label[which(clus ==i)], "\n")
-}
-
-
-image(S3)
-
-table( match(cluster_info$clust_cat, cat_names))
-# 1  2  3  4  5  6  7  8 
-# 4  6  2  6  1  2 14 15
-ii <- cumsum(table( match(cluster_info$clust_cat, cat_names)))
-balloon.plot(round(S3_sorted*10^4,4),text = F, xlabel = ord, ylabel = ord)+
-  geom_abline(slope =0, intercept = 50-ii[1]+1, color = "red") +
-  geom_vline(xintercept=ii[1], color ="red")+
-  geom_abline(slope =0, intercept = 50-ii[2]+1, color = "red") +
-  geom_vline(xintercept=ii[2], color ="red")+
-  geom_abline(slope =0, intercept = 50-ii[3]+1, color = "red") +
-  geom_vline(xintercept=ii[3], color ="red")+
-  geom_abline(slope =0, intercept = 50-ii[4]+1, color = "red") +
-  geom_vline(xintercept=ii[4], color ="red")+
-  geom_abline(slope =0, intercept = 50-ii[5]+1, color = "red") +
-  geom_vline(xintercept=ii[5], color ="red")+
-  geom_abline(slope =0, intercept = 50-ii[6]+1, color = "red") +
-  geom_vline(xintercept=ii[6], color ="red")+
-  geom_abline(slope =0, intercept = 50-ii[7]+1, color = "red") +
-  geom_vline(xintercept=ii[7], color ="red")+
-  scale_size(range = c(0, 4))
-
-
-```
-
-
 ## Some Validation about tweet counts
 
 - Address potential issues, 3200 tweets, may not cover all the tweets, definitely not covered (10.5%), and (12.8%) we don't have their timeline -- due to privacy or no tweets.
-```{r, eval=FALSE, echo=FALSE}
+```{r}
 # clearly truncatation for total at 3200 
-table((followers$first_date_timeline >as.Date('2015-06-16'))*(followers$count_total_timeline > 3200), followers$period)
-sum((followers$first_date_timeline >as.Date('2015-06-16'))*(followers$count_total_timeline > 3200), na.rm = T)/nrow(followers)
+table((followers$first_date_timeline > as.Date('2015-06-16'))*(followers$count_total_timeline > 3200), followers$period)
+sum((followers$first_date_timeline > as.Date('2015-06-16'))*(followers$count_total_timeline > 3200), na.rm = T)/nrow(followers)
 sum(is.na(followers$first_date_timeline))/nrow(followers)
 ```
 
 - Account started to following Trump at different time. Currently, constraint to 3 following stages, Trump followers always tweets more frequently.
 
-```{r, echo = FALSE, warning=FALSE, fig.width=8, fig.height=6}
+```{r}
 p91 <- followers  %>% ggplot(aes(log10(1+count_mean_timeline))) +
   stat_ecdf(geom="step",aes(group= clust_cat, color= clust_cat )) + 
   labs(y = "cumulative probability")+facet_grid(period~.)
 p91
 ```
 
-```{r, fig.width=8, fig.height=6}
+```{r}
 followers  %>% mutate(retweet_ajusted = log10(1+retweet_trump_count)/(log10(1+count_total_timeline))) %>%ggplot(aes(retweet_ajusted)) +
   stat_ecdf(geom="step",aes(group= clust_cat, color= clust_cat )) + 
   labs(y = "cumulative probability")+facet_grid(period~.)
@@ -474,13 +333,63 @@ followers  %>% mutate(retweet_ajusted = log10(1+retweet_trump_count)/(log10(1+co
 
 ##Part III visualization of some variables.
 
-```{r, echo = FALSE, warning=FALSE, fig.width=8, fig.height=6}
-followers %>% mutate(log_daily_count = log10(1+count_mean_timeline)) %>% ggplot(aes(x = log_daily_count)) +
-  geom_histogram(stat = "bin",  binwidth = 0.05) +labs(x = "average daily tweets (in log10)")
+**Interaction among Followers segements and Tweets Topics**
+
+```{r}
+f1 = followers %>% gather(`campaign.slogan`:`via_at`, key = "topic", value = "count") %>% mutate (count = as.numeric(count))
+
+#16
+f1$topic[f1$topic == "announce.media.presence.1"] = "campaign tweets"
+f1$topic[f1$topic == "announce.media.presence.2"] = "campaign tweets"
+f1$topic[f1$topic == "announce.media.presence.and.crticize.media"] = "campaign tweets"
+f1$topic[f1$topic == "announce.media.presence"] = "campaign tweets"
+f1$topic[f1$topic == "call.for.support"] = "campaign tweets"
+f1$topic[f1$topic == "call.for.vote"] = "campaign tweets"
+f1$topic[f1$topic == "call.for.vote.1"] = "campaign tweets"
+f1$topic[f1$topic == "campaign.slogan.1"] = "campaign tweets"
+f1$topic[f1$topic == "campaign.slogan.2"] = "campaign tweets"
+f1$topic[f1$topic == "campaign.slogan"] = "campaign tweets"
+f1$topic[f1$topic == "campaign.stops.1"] = "campaign tweets"
+f1$topic[f1$topic == "campaign.stops"] = "campaign tweets"
+f1$topic[f1$topic == "join_us"] = "campaign tweets"
+f1$topic[f1$topic == "thank_you"] = "campaign tweets"
+f1$topic[f1$topic == "express.appreciation.1"] = "campaign tweets"
+f1$topic[f1$topic == "express.appreciation"] = "campaign tweets"
+
+f1$topic[f1$topic == "criticize.opponents.1"] = "criticize opponents"
+f1$topic[f1$topic == "criticize.opponents.2"] = "criticize opponents"
+f1$topic[f1$topic == "criticize.opponents.3"] = "criticize opponents"
+f1$topic[f1$topic == "criticize.MR"] = "criticize opponents"
+f1$topic[f1$topic == "criticize.TC"] = "criticize opponents"
+f1$topic[f1$topic == "criticize.opponents"] = "criticize opponents"
+
+f1$topic[f1$topic == "praise.surrogates.1"] = "endorsement & surrogates"
+f1$topic[f1$topic == "praise.surrogates"] = "endorsement & surrogates"
+f1$topic[f1$topic == "retweet_endorse"] = "endorsement & surrogates"
+f1$topic[f1$topic == "cite.positive.news"] = "endorsement & surrogates"
+f1$topic[f1$topic == "via_at"] = "endorsement & surrogates"
+
+f1$topic[f1$topic == "border..trade.and.jobs"] = "border, trade & jobs"
+f1$topic[f1$topic == "criticize.HRC"] = "criticize HRC"
+f1$topic[f1$topic == "criticize.media"] = "criticize media"
+f1$topic[f1$topic == "criticize.the.establishment"] = "criticize the establishment"
+f1$topic[f1$topic == "great.poll.number"] = "great poll numbers"
+
+f1$topic = factor(f1$topic, levels = c("campaign tweets", "endorsement & surrogates", "great poll numbers", "border, trade & jobs", "criticize opponents", "criticize the establishment", "criticize HRC", "criticize media"))
+
+f1 %>% group_by(clust_cat, topic) %>% summarise(total_retweet_count = sum(count)) %>% ggplot(aes(x = clust_cat, y = total_retweet_count, fill = topic)) + geom_bar(stat = "identity", position = "fill") + theme(axis.text.x = element_text(angle = 50, hjust = 1)) + xlab("Cluster type") + ylab("Percentage of topics") + ggtitle("Retweet only") + scale_fill_brewer(palette = "Set2")
+
+f1 %>% group_by(clust_cat, topic) %>% summarise(total_retweet_count = sum(count)) %>% ggplot(aes(x = topic, y = total_retweet_count, fill = clust_cat)) + geom_bar(stat = "identity", position = "fill") + theme(axis.text.x = element_text(angle = 50, hjust = 1)) + xlab("Topic type") + ylab("Percentage of segments") + ggtitle("Retweet only") + scale_fill_brewer(palette = "Set2")
+
+```
+
+
+```{r}
+followers %>% mutate(log_daily_count = log10(1+count_mean_timeline)) %>% ggplot(aes(x = log_daily_count)) + geom_histogram(stat = "bin",  binwidth = 0.05) +labs(x = "average daily tweets (in log10)")
                  
 
 
-followers%>% mutate(log_total_count = log10(1+count_total_timeline)) %>% ggplot(aes(x = log_total_count)) +
+followers %>% mutate(log_total_count = log10(1+count_total_timeline)) %>% ggplot(aes(x = log_total_count)) +
   geom_histogram(stat = "bin",  binwidth = 0.1) +labs(x = "total tweets from timeline (in log10)")
 
 followers %>% mutate(ndays = count_total_timeline/count_mean_timeline) %>%
@@ -502,7 +411,7 @@ p53
 ```
 
 
-```{r, echo = FALSE, warning=FALSE, fig.width=8, fig.height=6}
+```{r}
 p61 <- followers  %>% ggplot(aes(created_at)) +
   geom_density(aes(color= clust_cat, fill = clust_cat), alpha =0.1,   position = "stack")+facet_grid(clust_cat~.)
 
@@ -512,7 +421,7 @@ p61
 p62
 ```
 
-```{r, echo = FALSE, warning=FALSE, fig.width=8, fig.height=6}
+```{r}
 p71 <- followers  %>% subset(created_at > as.Date('2015-06-16')) %>%ggplot(aes(log10(count_mean_timeline))) +
   geom_density(aes(color= clust_cat, fill = clust_cat), alpha =0.1,   position = "stack")+facet_grid(clust_cat~.)
 
@@ -523,16 +432,21 @@ p71
 p72
 ```
 
-```{r, echo = FALSE, warning=FALSE, fig.width=8, fig.height=6}
+```{r}
 p81 <- followers %>% ggplot(aes(log10(1+count_mean_timeline))) +
   geom_density(aes(color= clust_cat, fill = clust_cat), alpha =0.1,   position = "stack")+facet_grid(clust_cat~.)
 
 p82 <- followers  %>% ggplot(aes(log10(1+count_mean_timeline))) +
   stat_ecdf(geom="step",aes(group= clust_cat, color= clust_cat )) + 
   labs(y = "cumulative probability")
+
 p81
+
 p82
-```
+``` 
+
+## Discussion 
+pote
 
 
 

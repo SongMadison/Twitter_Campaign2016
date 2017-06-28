@@ -1,0 +1,194 @@
+---
+title: "Similarity Among 50 Clusters during the 3 Stages"
+author: "Song Wang"
+date: "6/27/2017"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.width=12, fig.height=8, fig.path='Figs/',
+                      echo=FALSE, warning=FALSE, message=FALSE)
+
+library(tidyverse) #include ggplot2, dyplyr, readr, tydyr
+theme_update(plot.title = element_text(hjust = 0.5))
+
+source("function.R")
+```
+
+
+```{r similarity50, eval = FALSE}
+ 
+#some exploratory on 
+load("../results_following/result3/analysis.RData")
+Z <- membershipM(km_row$cluster)
+NZ <-Z%*% Diagonal(dim(Z)[2],km_row$size^(-1))
+S1 <- t(NZ) %*% L%*%t(L)%*% NZ
+
+load("../results_following/result2/analysis.RData")
+Z <- membershipM(km_row$cluster)
+NZ <-Z%*% Diagonal(dim(Z)[2],km_row$size^(-1))
+S2 <- t(NZ) %*% L%*%t(L)%*% NZ
+
+
+load("../results_following/result1/analysis.RData")
+Z <- membershipM(km_row$cluster)
+NZ <-Z%*% Diagonal(dim(Z)[2],km_row$size^(-1))
+S3 <- t(NZ) %*% L%*%t(L)%*% NZ
+
+
+cluster_info <- read.csv("../results_following/cluster_summary.csv", stringsAsFactors = F)
+cluster_info$clust_cat[cluster_info$clust_cat=="anti-feminist conservatives"] = "men's interests"
+cluster_info$clust_cat[cluster_info$clust_cat=="news&region"] = "news & region"
+colnames(S1) <- rownames(S1) <- cluster_info$cluster_label[1:50]
+colnames(S2) <- rownames(S2) <- cluster_info$cluster_label[51:100]
+colnames(S3) <- rownames(S3) <- cluster_info$cluster_label[101:150]
+save(S1,S2,S3, file = "similarity50.RData")
+
+```
+
+## Stage 1:  pre-annoucement
+
+```{r}
+load("similarity50.RData")
+cs <- read.csv("../results_following/cluster_summary.csv", stringsAsFactors = F)
+cs$clust_cat[cs$clust_cat=="anti-feminist conservatives"] = "men's interests"
+cs$clust_cat[cs$clust_cat=="news&regional"] = "news & regional"
+cat_names <-c("Trump supporters","conservatives","liberals","news & regional","men's interests", "international","non-political", "other countries")
+cs$clust_cat <- factor(cs$clust_cat, cat_names)
+
+
+cluster_info <- cs[1:50,]
+table(cluster_info$clust_cat)
+ord <- NULL
+for( nn in cat_names){
+  ord <- c(ord, which(cluster_info$clust_cat == nn))
+  cat(nn,length(ord), "\n")
+}
+
+  
+heatmap(as.matrix(S1),main = "using original cluster id")
+
+library(sparseAHC)
+hclust = sparseAHC(S1, linkage = "average")
+plot(hclust)
+nclust = 10
+clus = cutree(hclust, nclust )
+for( i in 1:nclust ){
+  cat("i=",i,"\t", cluster_info$cluster_label[which(clus ==i)], "\n")
+}
+
+image(S1) 
+
+S1_sorted <- S1[ord, ord]
+ii <- cumsum(table( match(cluster_info$clust_cat, cat_names)))
+balloon.plot(round(S1_sorted*10^4,4),text = F, xlabel = ord, ylabel = ord)+
+  geom_abline(slope =0, intercept = 50-ii[1]+1, color = "red") +
+  geom_vline(xintercept=ii[1], color ="red")+
+  geom_abline(slope =0, intercept = 50-ii[2]+1, color = "red") +
+  geom_vline(xintercept=ii[2], color ="red")+
+  geom_abline(slope =0, intercept = 50-ii[3]+1, color = "red") +
+  geom_vline(xintercept=ii[3], color ="red")+
+  geom_abline(slope =0, intercept = 50-ii[4]+1, color = "red") +
+  geom_vline(xintercept=ii[4], color ="red")+
+  geom_abline(slope =0, intercept = 50-ii[5]+1, color = "red") +
+  geom_vline(xintercept=ii[5], color ="red")+
+  geom_abline(slope =0, intercept = 50-ii[6]+1, color = "red") +
+  geom_vline(xintercept=ii[6], color ="red")+
+  geom_abline(slope =0, intercept = 50-ii[7]+1, color = "red") +
+  geom_vline(xintercept=ii[7], color ="red")+
+  scale_size(range = c(0, 4))+ labs(title = "similariy among clusters (in 1e-4)")
+
+
+```
+
+## Stage 2: Primary election
+
+```{r}
+cluster_info <- cs[51:100,]
+table(cluster_info$clust_cat)
+ord <- NULL
+for( nn in cat_names){
+  ord <- c(ord, which(cluster_info$clust_cat == nn))
+  cat(nn,length(ord), "\n")
+}
+  
+heatmap(as.matrix(S2), main = "using original cluster id")
+
+library(sparseAHC)
+hclust = sparseAHC(S2, linkage = "average")
+plot(hclust)
+nclust = 10
+clus = cutree(hclust, nclust )
+for( i in 1:nclust ){
+  cat("i=",i,"\t", cluster_info$cluster_label[which(clus ==i)], "\n")
+}
+
+image(S2) 
+
+S2_sorted <- S2[ord, ord]
+ii <- cumsum(table( match(cluster_info$clust_cat, cat_names)))
+balloon.plot(round(S2_sorted*10^4,4),text = F, xlabel = ord, ylabel = ord)+
+  geom_abline(slope =0, intercept = 50-ii[1]+1, color = "red") +
+  geom_vline(xintercept=ii[1], color ="red")+
+  geom_abline(slope =0, intercept = 50-ii[2]+1, color = "red") +
+  geom_vline(xintercept=ii[2], color ="red")+
+  geom_abline(slope =0, intercept = 50-ii[3]+1, color = "red") +
+  geom_vline(xintercept=ii[3], color ="red")+
+  geom_abline(slope =0, intercept = 50-ii[4]+1, color = "red") +
+  geom_vline(xintercept=ii[4], color ="red")+
+  geom_abline(slope =0, intercept = 50-ii[5]+1, color = "red") +
+  geom_vline(xintercept=ii[5], color ="red")+
+  geom_abline(slope =0, intercept = 50-ii[6]+1, color = "red") +
+  geom_vline(xintercept=ii[6], color ="red")+
+  geom_abline(slope =0, intercept = 50-ii[7]+1, color = "red") +
+  geom_vline(xintercept=ii[7], color ="red")+
+  scale_size(range = c(0, 4))+ labs(title = "similariy among clusters (in 1e-4)")
+
+```
+
+## Stage 3: General election
+
+```{r}
+cluster_info <- cs[101:150,]
+table(cluster_info$clust_cat)
+ord <- NULL
+for( nn in cat_names){
+  ord <- c(ord, which(cluster_info$clust_cat == nn))
+  cat(nn,length(ord), "\n")
+}
+
+  
+heatmap(as.matrix(S3),main = "using original cluster id")
+
+library(sparseAHC)
+hclust = sparseAHC(S3, linkage = "average")
+plot(hclust)
+nclust = 10
+clus = cutree(hclust, nclust )
+for( i in 1:nclust ){
+  cat("i=",i,"\t", cluster_info$cluster_label[which(clus ==i)], "\n")
+}
+
+image(S3) 
+
+S3_sorted <- S3[ord, ord]
+ii <- cumsum(table( match(cluster_info$clust_cat, cat_names)))
+balloon.plot(round(S3_sorted*10^4,4),text = F, xlabel = ord, ylabel = ord)+
+  geom_abline(slope =0, intercept = 50-ii[1]+1, color = "red") +
+  geom_vline(xintercept=ii[1], color ="red")+
+  geom_abline(slope =0, intercept = 50-ii[2]+1, color = "red") +
+  geom_vline(xintercept=ii[2], color ="red")+
+  geom_abline(slope =0, intercept = 50-ii[3]+1, color = "red") +
+  geom_vline(xintercept=ii[3], color ="red")+
+  geom_abline(slope =0, intercept = 50-ii[4]+1, color = "red") +
+  geom_vline(xintercept=ii[4], color ="red")+
+  geom_abline(slope =0, intercept = 50-ii[5]+1, color = "red") +
+  geom_vline(xintercept=ii[5], color ="red")+
+  geom_abline(slope =0, intercept = 50-ii[6]+1, color = "red") +
+  geom_vline(xintercept=ii[6], color ="red")+
+  geom_abline(slope =0, intercept = 50-ii[7]+1, color = "red") +
+  geom_vline(xintercept=ii[7], color ="red")+
+  scale_size(range = c(0, 4))+ labs(title = "similariy among clusters (in 1e-4)")
+
+```
