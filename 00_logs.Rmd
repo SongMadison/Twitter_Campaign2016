@@ -1,0 +1,1323 @@
+---
+title: "logs of my coding and propresses"
+author: "Song Wang"
+date: "October 15, 2016"
+output: html_document
+---
+```{r global_options, evel=FALSE }
+knitr::opts_chunk$set(eval = FALSE)
+```
+
+#June 12, 2017
+1,
+```{r}
+fr1 <- read.csv("../data/friends_info/data_friends/friends_1_info.csv", colClasses = c("character"))
+fr2 <- read.csv("../data/friends_info/data_friends/friends_2_info.csv", colClasses = c("character"))
+fr3 <- read.csv("../data/friends_info/data_friends/friends_3_info.csv", colClasses = c("character"))
+friends <- rbind(fr3,fr2,fr1); rm(fr1, fr2, fr3)
+idx <- match(cc, friends$id_str)
+ idx1 <- match(friends$id_str, cc)
+ sum(is.na(idx1))
+8
+sum(is.na(idx))
+4038110
+ a = unique(friends$id_str)
+ length(a)
+# 5080589
+length(cc)-length(a)
+4038102
+friends <- friends[idx,]
+nrow(friends)
+9205753
+sum(!is.na(friends$id_str))
+9205753
+friends1 <- friends[idx[!is.na(idx)],]
+write.csv(friends1, file = "../data/friends_info/data_friends/friends_321_first.csv", row.names = F)
+```
+
+
+
+I construct a big graph 3244933x9118691 following networks
+found the in the subgraph friends1_info.csv - friends_3_info.csv
+only covered  5080581 out of 9118691. But they will be good approximate 
+
+```{r}
+rm(list =ls())
+library(smappR)
+friends_ids <- read.csv("../results_following/pagerank2.csv", colClasses = c("character"))
+friends_info <- getUsersBatch(ids = followers_IDs, oauth_folder = my_oauth_folder, 
+                           include_entities = TRUE, verbose = TRUE, 
+                           output = paste0("../data/followers_info/jsons/trump_allfriends_info.json"))
+
+write.csv(followers_info, file = paste0("../data/followers_info/csvs/trump_allfriends_info.csv"))
+```
+## Jun 8, 2017
+created two extra tables for results_following
+deplorable_features.csv -- average followering rate 10 people in each 50 clusters
+
+
+### May 24, 2017
+Planning to write python to extract certain columns from tweets_csv files,
+         1, merge into individual file, with name t01_part1.csv - t04_part4.csv
+
+
+### May 10, 2017
+1, re-cleaned the tweets before Nov 08. Made a mistake previously and kept the tweets after Nob 08 
+2 NOT done due to space limitation!!
+```{r}
+source("Head_file.R")
+source("function.R")
+for (i in c(10:14) ){
+  i_str <- ifelse(i <10, paste0('0',i), i)
+  csv_folder <- paste0("../data/friends_info/edgelist_Feb27/timelines_csv/t",i_str,"_part1/")
+  tweets <-   processTweets_time(csv_folder,end_time = '2016-11-09 00:00:00', n_cores = 2)
+  write.csv(tweets, file = paste0("../data/friends_info/edgelist_Feb27/timelines_csv_Nov8/t",
+                                  i_str,"_part1.csv"))
+  cat("i=", i , "is done! \n\n")
+  rm(tweets)
+}
+
+source("Head_file.R")
+source("function.R")
+for (i in c(1:14) ){
+  i_str <- ifelse(i <10, paste0('0',i), i)
+  csv_folder <- paste0("../data/friends_info/edgelist_Feb27/timelines_csv/t",i_str,"_part2/")
+  tweets <-   processTweets_time(csv_folder,end_time = '2016-11-09 00:00:00', n_cores = 2)
+  write.csv(tweets, file = paste0("../data/friends_info/edgelist_Feb27/timelines_csv_Nov8/t",
+                                  i_str,"_part2.csv"))
+  cat("i=", i , "is done! \n\n")
+  rm(tweets)
+}
+
+source("Head_file.R")
+source("function.R")
+for (i in c(1:14) ){
+  i_str <- ifelse(i <10, paste0('0',i), i)
+  csv_folder <- paste0("../data/friends_info/edgelist_Feb27/timelines_csv/t",i_str,"_part3/")
+  tweets <-   processTweets_time(csv_folder,end_time = '2016-11-09 00:00:00', n_cores = 1)
+  write.csv(tweets, file = paste0("../data/friends_info/edgelist_Feb27/timelines_csv_Nov8/t",
+                                  i_str,"_part3.csv"))
+  cat("i=", i , "is done! \n\n")
+  rm(tweets)
+}
+
+source("Head_file.R")
+source("function.R")
+for (i in c(1:14) ){
+  i_str <- ifelse(i <10, paste0('0',i), i)
+  csv_folder <- paste0("../data/friends_info/edgelist_Feb27/timelines_csv/t",i_str,"_part4/")
+  tweets <-   processTweets_time(csv_folder,end_time = '2016-11-09 00:00:00', n_cores = 1)
+  write.csv(tweets, file = paste0("../data/friends_info/edgelist_Feb27/timelines_csv_Nov8/t",
+                                  i_str,"_part4.csv"))
+  cat("i=", i , "is done! \n\n")
+  rm(tweets)
+}
+```
+
+
+### April 15, 2017
+1, process graph, eliminated friends < 10000 followers in total, trump followers having <10 friends in total
+graph1: after cleaning, nrow from 56176 -> 55433; ncol: from 1942545 -> 579057; nedge from 71117452 -> 41270034, #0.5803081
+graph2: after cleaning, nrow from 162799 -> 161429; ncol: from 4109958 -> 714088; nedge from 204830593 - > 111562495 #0.5446574
+graph3 -> after cleaning, nrow from 105836 -> 105500; ncol: from 3173251 -> 582254; nedge from 171724816 -> 99478559
+# 0.5792905 edges kept
+
+2, created the samp_info.csv data, this will help help do next stage analysis
+```{r}
+trump <- read.csv("/data/SongWang/Twitter_Campaign2016/data/followers_info/csvs/full_info/trump_all_followers.csv", colClasses = c("character"))
+trump <-trump[nrow(trump):1,] 
+sns <- unique(trump$screen_name) # remove the latest id_str -- corresponding row
+idx <- match(sns,trump$screen_name)
+trump <- trump[idx,]
+trump <- trump[nrow(trump):1,]
+
+
+all_samp <- read.csv("/data/SongWang/Twitter_Campaign2016/data/friends_info/edgelist_Feb27/all_samp_idsn_counts.csv", colClasses = c("character"))
+idx1 <- match(all_samp$screen_name, trump$screen_name)
+all_samp <- data.frame(all_samp, time_rank= idx1, trump[idx1,c(2:4,5:6,8:12,14:16)])
+write.csv(all_samp, file ="/data/SongWang/Twitter_Campaign2016/data/friends_info/edgelist_Feb27/all_samp_info.csv", row.names = 1:nrow(all_samp))
+```
+
+
+### April 13, 2017, 
+cleaned all_followers, remove dulplicate screen names, keep the oldest version
+cleaned the all_samp, remove 2 items not in all_followers, sort them
+based on time, partition the 377649 into three parts again. different from original one.
+This will facilitate analysis, don't worry about any inconsistency of the ordering.
+```{r}
+#all <- read.csv("../data/friends_info/edgelist_Feb27/all_followers_info.csv", colClasses = c("character"))
+all <- read.csv("/data/SongWang/Twitter_Campaign2016/data/followers_info/csvs/full_info/trump_all_followers.csv", colClasses = c("character"))
+if ('X' %in% names(all)){all <- all [, -match("X",names(all))]}
+samp <- read.csv("../data/friends_info/edgelist_Feb27/originalData/all_samp_idsn_counts_with_duplicates.csv", colClasses = c("character"))
+ids <-readLines("../data/friends_info/edgelist_Feb27/originalData/ids_13M.txt")
+
+#remove duplicates
+samp <- samp[nrow(samp):1,]
+sns <- unique(samp$screen_name)
+idx <- match(sns, samp$screen_name)
+samp <- samp[idx,]
+samp <- samp[nrow(samp):1,]
+write.csv(samp, file ="../data/friends_info/edgelist_Feb27/all_samp_cleaned.csv",row.names = F)
+
+#remove duplicates
+all <- all[nrow(all):1,]
+id1 <- unique(all$id_str)
+idx1 <-match(id1, all$id_str)
+all <- all[idx1,]
+sns <- unique(all$screen_name)
+idx2 <- match(sns, all$screen_name)
+all <- all[idx2,]
+all <- all[nrow(all):1,] #12877459        5
+write.csv(all, file ="../data/friends_info/edgelist_Feb27/all_followers_info_cleaned.csv", row.names = F)
+
+#remove duplicates
+ids <- unique(ids[length(ids):1])
+ids <- ids[length(ids):1]
+writeLines(ids, con ="../data/friends_info/edgelist_Feb27/ids_13M_cleaned.txt")
+
+#order all based on ids
+idx <- match(ids, all$id_str)
+idx <- idx[!is.na(idx)]
+all <- all[idx, ]   # increasing order
+idx <- match(all$id_str, ids)
+stopifnot( idx[2:length(idx)]- idx[2:length(idx)-1]>0)
+
+
+idx <- match(all$screen_name, samp$screen_name)
+idx <- idx[!is.na(idx)] # a few followers not all.csv
+samp<-samp[idx,]
+idx <- match(samp$screen_name, all$screen_name)
+stopifnot( idx[2:length(idx)]- idx[2:length(idx)-1]>0)
+#> length(ids)
+#[1] 12998006
+#> nrow(all)
+#[1] 12877459
+#> nrow(samp)
+#[1] 377725
+
+#early 3 million
+idx <- match(all$id_str, ids); time_ordering <- idx
+idx3 <- which(idx >10e6) ##9900774 - 12.8 
+#middle
+idx2 <- which((idx > 3.2e6) * (idx<=10e6) >0)  ##9900774
+#early 3.2 million
+idx1 <- which(idx <=3.2e6)  #1-3128869 
+
+i1 = 3130790 #3128868
+i2 = 9902730 #9900743
+
+idx11 <- match(samp$screen_name, all$screen_name[1:i1])
+idx11 <- which(!is.na(idx11))
+idx22 <- match(samp$screen_name, all$screen_name[(i1+1):i2])
+idx22 <- which(!is.na(idx22))
+idx33 <- match(samp$screen_name, all$screen_name[(i2+1):nrow(all)])
+idx33 <- which(!is.na(idx33))
+
+i11 <- 60955 #60886
+i22 <- 252766 #252614
+samp1 <- samp[1:i11,]; write.csv(samp1, file ="../data/friends_info/edgelist_Feb27/samp1.csv", row.names = F)
+samp1_info <- all[match(samp1$screen_name, all$screen_name),]; 
+write.csv(samp1_info, file ="../data/friends_info/edgelist_Feb27/samp1_info.csv", row.names = F)
+
+samp2 <- samp[(i11+1):i22,]; write.csv(samp2, file ="../data/friends_info/edgelist_Feb27/samp2.csv", row.names = F)
+samp2_info <- all[match(samp2$screen_name, all$screen_name),]; 
+write.csv(samp2_info, file ="../data/friends_info/edgelist_Feb27/samp2_info.csv", row.names = F)
+
+samp3 <- samp[(i22+1):nrow(samp),]; write.csv(samp3, file ="../data/friends_info/edgelist_Feb27/samp3.csv", row.names = F)
+samp3_info <- all[match(samp3$screen_name, all$screen_name),];
+write.csv(samp3_info, file ="../data/friends_info/edgelist_Feb27/samp3_info.csv", row.names = F)
+
+samp_info <- all[match(samp$screen_name, all$screen_name),]
+write.csv(samp_info, file ="../data/friends_info/edgelist_Feb27/samp_info.csv", row.names = F)
+
+
+
+
+adjlist_all <- readLines("../data/friends_info/edgelist_Feb27/originalData/obsolete/adjlist_all_old.txt")
+load( "../data/friends_info/edgelist_Feb27/originalData/adjlist_all.RData")
+sns_adj  <- gsub("^(.*?),.*", '\\1', adjlist_all) #? important, match the shortest
+max(sapply(sns_adj,nchar))
+#[1] 15
+
+idx1 <- match(samp1$screen_name, sns_adj)
+sum(is.na(idx1))
+adjlist_1 <- adjlist_all[idx1[!is.na(idx1)]]
+sns_adj1  <- gsub("^(.*?),.*", '\\1', substr(adjlist_1,1,20)) #? important, match the shortest
+stopifnot(sns_adj1 == samp1$screen_name)
+
+
+idx2 <- match(samp2$screen_name, sns_adj)
+sum(is.na(idx2))
+adjlist_2  <- adjlist_all[idx2[!is.na(idx2)]]
+sns_adj2  <- gsub("^(.*?),.*", '\\1', substr(adjlist_2,1,20)) #? important, match the shortest
+stopifnot(sns_adj2 == samp2$screen_name)
+
+idx3 <- match(samp3$screen_name, sns_adj)
+sum(is.na(idx3))
+adjlist_3  <- adjlist_all[idx3[!is.na(idx3)]]
+sns_adj3  <- gsub("^(.*?),.*", '\\1', substr(adjlist_3,1,20)) #? important, match the shortest
+stopifnot(sns_adj3 == samp3$screen_name)
+
+idx4 <- match(samp$screen_name,sns_adj)
+sum(is.na(idx4))
+adjlist_all_ordered <- adjlist_all[idx4[!is.na(idx4)]]
+
+length(adjlist_1 )
+#[1] 60955
+length(adjlist_2)
+#[1] 191811
+length(adjlist_3)
+#[1] 124959
+length(adjlist_all_ordered)
+
+writeLines(adjlist_1, con = "../data/friends_info/edgelist_Feb27/originalData/adjlist_1.txt")
+writeLines(adjlist_2, con = "../data/friends_info/edgelist_Feb27/originalData/adjlist_2.txt")
+writeLines(adjlist_3, con = "../data/friends_info/edgelist_Feb27/originalData/adjlist_3.txt")
+writeLines(adjlist_all_ordered, con = "../data/friends_info/edgelist_Feb27/originalData/adjlist_all.txt")
+
+```
+
+
+
+###April 11, 2017
+1, forgot to process two folders 
+t03_part2
+t07_part2 
+to create the combined csv in term of time Nov8 and related to Trump.
+2, separate the timelines into different folders according to time, called tmp1, tmp2, tmp3 under Nov8
+# remove some followers belong to multiple time periods
+3, separate the timelines into different folders according to time, called tmp1, tmp2, tmp3 under Nov8
+# remove some followers belong to multiple time periods
+
+
+### April 10, 2017
+recreated id_counts_sample, by removing about 158 or so users belonging to multiple time periods
+ -- potential reasons, they may unfollow trump and later follow again
+ -- so they show up in the ids list of Oct 10 and also the ids list on Jan 08
+ -- in the population, out 13m, there  1994 or 1995 duplicate ids/screen_names
+ -- 1992/13e6*377809 = 58 if randomly sampled. it seems they appear three times more than random.
+
+```{r}
+
+files <- list.files("../data/friends_info/edgelist_Feb27/timelines_csv_Nov8/")
+samp1 <- read.csv("../data/friends_info/edgelist_Feb27/originalData/sampleFeb17_ord.csv", colClasses = c("character"))
+samp2 <- read.csv("../data/friends_info/edgelist_Feb27/originalData/sampleMar20.csv", colClasses = c("character"))
+samp <- rbind(samp1, samp2)
+names(samp1)
+names(samp2)
+id_counts2 <- read.csv("../data/followers_info/jsons/id_counts_2.csv", colClasses = c("character"))
+idx <- match(samp1$non.random, id_counts2$screen_name[1:nrow(id_counts2)])
+sum(is.na(idx)) # no missing
+samp3 <- cbind(1:nrow(samp1), id_str = id_counts2$id_str[idx], screen_name = id_counts2$screen_name[idx])
+
+all_samp <- read.csv("../data/friends_info/edgelist_Feb27/originalData/all_samp_idsn_counts_with_duplicates.csv", 
+                     colClasses = c("character"))
+ids<- table(all_samp$id_str)
+sns <- table(all_samp$screen_name)
+id_rm <- names(which(ids>1))
+sn_rm <- names(which(sns >1))
+idx1 <- which(all_samp$id_str%in% id_rm)
+idx2 <- which(all_samp$screen_name %in% sn_rm)
+idx_all <- unique(c(idx1,idx2))
+length(idx_all)
+sort(idx_all)
+
+all_sample <- all_samp[-idx_all,]
+write.csv(all_sample, file ="../data/friends_info/edgelist_Feb27/all_samp_idsn_counts.csv", row.names = 1:nrow(all_sample))
+```
+
+
+
+### April 9, 2017
+ -- understand how the timelines -- different folders of csvs, logs, 
+    -- downloading time
+    -- errors and potential issues.
+    -- found the timelines13 folde
+
+
+### Mar 29,
+
+create the graph Rdata, friends , followers RData
+```{r}
+#out of curiosity, I want to know what, whether the majority of part of previous samples are sample 
+# from a wider range.
+trump<- read.csv("./csvs/trump_followers_info.csv", colClasses = c("character"))
+id_counts_1 <- read.csv("./jsons/id_counts.csv",colClasses = c("character"))
+ids <- readLines("./ids/realDonaldTrump.txt")
+idx1 <- match(id_counts_1$id_str, ids)
+sum(is.na(idx1))
+
+idx11 <- match(id_counts_1$id_str[1:709874], ids)
+plot(sample(idx11, 1000))
+summary(idx11)
+
+idx12 <- match(id_counts_1$id_str[(1:3495503)+709874], ids)
+summary(idx12)
+idx13 <- match(id_counts_1$id_str[1:933486 +3495503+709874], ids )
+summary(idx13)
+
+id_counts_2 <- read.csv("./jsons/id_counts_2.csv",colClasses = c("character"))
+idx2 <- match(id_counts_2$id_str, ids)
+sum(is.na(idx2))
+'
+> idx1 <- match(id_counts_1$id_str, ids)
+> idx1 <- match(id_counts_1$id_str, ids)
+> sum(is.na(idx1))
+[1] 0
+> 
+> idx11 <- match(id_counts_1$id_str[1:709874], ids)
+> plot(sample(idx11, 1000))
+> summary(idx11)
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+      1  177600  355000  355000  532500  710000 
+> 
+> idx12 <- match(id_counts_1$id_str[(1:3495503)+709874], ids)
+> summary(idx12)
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+ 710000 1719000 2726000 2726000 3733000 4740000 
+> idx13 <- match(id_counts_1$id_str[1:933486] +3495503+709874, ids )
+Error in id_counts_1$id_str[1:933486] + 3495503 : 
+  non-numeric argument to binary operator
+> summary(idx13)
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+ 710000 4923000 5157000 5051000 5390000 5624000 
+> 
+> id_counts_2 <- read.csv("./jsons/id_counts_2.csv",colClasses = c("character"))
+> idx2 <- match(id_counts_2$id_str, ids)
+> sum(is.na(idx2))
+[1] 0
+> idx13 <- match(id_counts_1$id_str[1:933486 +3495503+709874], ids )
+> summary(idx13)
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+ 710000 4923000 5157000 5051000 5390000 5624000 
+> summary(idx2)
+'
+
+```
+
+
+
+
+
+### Mar 24-25, 2017,
+1, processed tweets, --> based on time  
+    <= Nov 8, 2016
+    and related to Trump
+2, download friends info to get the population follower count
+3, realize that I need to download the timelines for recently sampled 130k later followers.
+
+
+### Mar 23, 2017
+partion the data into three parts-- encounter some overlappings of ids 
+Among the newly 0.8M people, about 1900 have ids same as before
+-- 1, those people unfollow and then follow
+-- 2, previous account with that ids suspended, a new account created. 6 in our sample are like this.
+            id_str screen_name
+> id_sn[which(id_sn$id_str == "72542082"),]
+          id_str screen_name
+108020  72542082   mithoMaya
+1274102 72542082     popup2k
+> id_sn[which(id_sn$id_str == "3250613910"),]
+             id_str    screen_name
+167355   3250613910       Neskuler
+10056146 3250613910 AdanFashion511
+
+```{r, eval= FALSE}
+
+
+i1 <- match(all[3.2e6], id_sn$id_str)
+[1] 3130834
+i2 <- match(all[10e6], id_sn$id_str)
+9902771
+
+id_sn1 <- id_sn[1:i1,]
+id_sn2 <- id_sn[(i1+1):i2,]
+id_sn3 <- id_sn[(i2+1):nrow(id_sn),]
+
+
+trump <- read.csv("followers_info/jsons/trump_followers_info.csv")  #12879486
+#id_str, screen_name, description, follower_count
+id_counts_all <- read.csv("followers_info/jsons/id_counts_all.csv")  #12877542, Mar22
+#id_str, screen_name, protected, follower_count
+
+ids <- unique(trump$id_str); length(id_counts_all)# same as id_counts_all.
+
+##id_counts_all remove the second all, counts as new followers
+
+
+
+## originally, based on ids, we want to truncate at 0-3.2 M and 3.2M -10M and 10M- 13M.
+# look the index of samples, in increasing all, find the seprating points,
+#due to some accounts are not downlodable, at least out 12.998 M, 12.88 millions are accessible.
+#after some manualy adjustment, truncated at 3.129M, 9.901 M.  are 120465 = 0.120M are gone
+i1 = 3.129e6 +2.0e3  #duplicates-- to save time
+i2 = 9.901e6
+
+
+> length(all)
+[1] 13000000
+> length(all_final)
+[1] 12998006
+> nrow(id_sn)
+[1] 12879486
+> nrow(id_sn_cleaned)
+[1] 12877541
+
+
+
+samp_sn <- c(samp1$screen_name, samp2$non.random)
+idx1 <- match(samp_sn, id_sn1$screen_name)
+idx2 <- match(samp_sn, id_sn2$screen_name)
+idx3 <- match(samp_sn, id_sn3$screen_name)
+
+idx1[is.na(idx1)] <- 0
+idx2[is.na(idx2)] <- 0
+idx3[is.na(idx3)] <- 0
+
+sum(idx1*idx2*idx3>0)
+[1] 0
+sum(idx1*idx2>0)  # show up in graph1, graph2
+[1] 136
+sum(idx1*idx3>0) 
+[1] 29
+sum(idx2*idx3>0)
+[1] 1
+
+#randomly assign
+set.seed(1234)
+r12 <- rbinom(1362,1, length(ii1)/(length(ii1)+length(ii3)))
+set.seed(1234)
+r12 <- rbinom(sum(idx1*idx2>0),1,length(ii1)/(length(ii1)+length(ii2)))
+r13 <- rbinom(sum(idx1*idx3>0),1, length(ii1)/(length(ii1)+length(ii3)))
+r23 <- rbinom(sum(idx2*idx3>0),1, length(ii2)/(length(ii2)+length(ii3)))
+
+i12 <- which(idx1*idx2 >0 )
+i13 <- which(idx1*idx3>0)
+i23 <- which(idx2*idx3>0)
+idx1[i12] <- idx1[i12]*r12
+idx1[i13] <- idx1[i13]*r13
+idx2[i12] <- idx2[i12]*(1-r12)
+idx2[i23] <- idx2[i23]*r23
+idx3[i23] <- idx3[i23]*(1-r23)
+idx3[i13] <- idx3[i13]*(1-r13)
+graph1 <- id_sn1[idx1[idx1>0],]
+graph2 <- id_sn2[idx2[idx2>0],]
+graph3 <- id_sn2[idx3[idx3>0],]
+nrow(graph3)+nrow(graph1)+nrow(graph2)
+[1] 377803
+> length(samp_sn)  #6 are missing
+[1] 377809
+which(idx1+idx2+idx3==0)
+[1]    16009 104706
+graph1 <- rbind(graph1,samp1[which(idx1+idx2+idx3==0),1:2])
+> nrow(graph1)
+[1] 60951
+
+> f[,1:2]
+      id_str   screen_name
+1   14295211 TaylorGerring
+2 2358442358   iprayanyway
+> graph1 <-rbind( graph1,f[,1:2])
+
+
+write.csv(graph1, file = "../data/friends_info/edgelist_Feb27/graph1_id_sn.csv", row.names  = F)
+> write.csv(graph2, file = "../data/friends_info/edgelist_Feb27/graph2_id_sn.csv", row.names  = F)
+> write.csv(graph3, file = "../data/friends_info/edgelist_Feb27/graph3_id_sn.csv", row.names  = F)
+
+
+  id_str   screen_name                 name
+1   14295211 TaylorGerring     Taylor Gerring 🦄
+2 2358442358   iprayanyway Joyce Wilson-Sanford
+                                                                                                                           description
+1 A [code, systems, life] hacker making blockchains great again! Views my own. Retweets not endorsements {PGP:\026 0xE62C5439B8A9B74D}
+2                          I PRAY ANYWAY\037—Devotions for the Ambivalent tells of the author’s return to a prayer/devotions practice.
+  followers_count statuses_count friends_count                     created_at
+1            4389          13090           337 Thu Apr 03 17:43:31 +0000 2008
+2              73            278           556 Sun Feb 23 19:59:30 +0000 2014
+  location lang                  time_zone      status.id_str
+1   以太坊   en Eastern Time (US & Canada) 844994958641778689
+2            en                       <NA> 844355480025796608
+               status.created_at
+1 Thu Mar 23 19:31:12 +0000 2017
+2 Wed Mar 22 01:10:08 +0000 2017
+                                                                                                                                   status.text
+1 More than one president has wanted to dismantle the CIA. Will Wikileaks provide the evidence for Trump to take acti… https://t.co/Hd6YKkmEhO
+2                                     Fran Lebowitz: By the Book https://t.co/pUJRft09hr \nWithout reading, you are stuck with life\nAmen I say
+
+
+
+
+
+```
+
+
+
+
+### Mar 19, 2017
+resample another sample proportional to the total number of followers
+sample is use R code generated
+
+#### how sampleMar20 is created: Because I have not finish downloading 
+
+#### I forgot about the seed. so I cannot regenerate this sample
+
+#### I generate this by combine two parts.
+
+```{r}
+'cd 
+
+"/data/SongWang/Twitter_Campaign2016/data/followers_info"
+
+trump00 <- read.csv("./csvs/trump00.csv")
+> sum(trump00$followers_count)
+[1] 208319142
+> sum(trump00$followers_count)/3391836736*244798
+
+> trump01 <- read.csv("./csvs/trump01.csv")
+> trump02 <- read.csv("./csvs/trump02.csv")
+> trump03 <- read.csv("./csvs/trump03.csv")
+> trump04 <- read.csv("./csvs/trump04.csv")
+> trump05 <- read.csv("./csvs/trump05.csv")
+> trump06 <- read.csv("./csvs/trump06.csv")
+> total = 0
+> total = total +sum(trump00$followers_count)
+> total = total +sum(trump01$followers_count)
+> total = total +sum(trump02$followers_count)
+> total = total +sum(trump03$followers_count)
+> total = total +sum(trump04$followers_count)
+> total = total +sum(trump05$followers_count)
+> total = total +sum(trump06$followers_count)
+> total
+[1] 1842950689
+
+> total/3391836736*244798
+[1] 133010.7
+
+all <-NULL
+> all <-rbind(all, trump00)
+> all <-rbind(all, trump01)
+> all <-rbind(all, trump02)
+^[[A> all <-rbind(all, trump03)
+> all <-rbind(all, trump04)
+> all <-rbind(all, trump05)
+> all <-rbind(all, trump06)
+> dim(all)
+[1] 6387599       5
+> 6491888+6387599-1 -(12877542-1)#  line counts in id_count2.csv ,(lines in id_counts_all)
+[1] 1945
+
+> which(all$screen_name == "TaylorGerring")
+
+samp0 <- read.csv("../friends_info/edgelist_Feb27/originalData/sampleMar20.csv")
+> idx <- match(samp0$screen_name, all$screen_name)
+which(is.na(idx))
+[1]  16009 104706
+> samp0[which(is.na(idx)),]
+           id_str   screen_name followers_count
+16009    14295211 TaylorGerring            4364
+104706 2358442358   iprayanyway              67
+'
+```
+
+
+###Mar15
+I found the previous 100k followers, their graph is just 200M, which is so different from his previous followers. I decide to redownload their friends list to see what happened now.
+
+```{r}
+rm(list =ls ())
+source("function.R")
+library("smappR")
+downloadFriendlist <- function (SN1, my_oauth_folder, output){
+  conn = file(output, 'w') 
+  for ( i in 1:length(SN1)){  
+    #5607, 8840, 17599 00:01/ Oct18
+    #i =1 #sn ="DivinemLee"  #1300 friends
+    sn = SN1[i]
+    friendIDs <- tryCatch(
+      {
+        getFriends(screen_name=sn, oauth_folder = my_oauth_folder,
+                   cursor=-1, user_id=NULL, verbose=TRUE, sleep=1)
+      }, error = function(cond){
+        message(cond)
+        return (NA)
+      }, warning = function(cond){
+        message(cond)
+        return (NA)
+      }
+    )                    
+    write(paste(c(sn,friendIDs), collapse = ','), file  = output, append = TRUE, sep = '\n')
+    message("i--", i," users have been processed")
+  }
+  close(conn) # unitl close ,the data will be written. kind of dangerous if
+}
+
+
+samp100K <- read.csv("../data/followers_info/jsons/sampleSNs100000.csv",header = T, stringsAsFactors = F)
+my_oauth_folder <- "./credentials/credential_mixed02/"
+output <- "../data/friends_info/old100K.txt"
+downloadFriendlist (samp100K$non_random, my_oauth_folder, output)
+
+
+#redownload the first 4740000 followers based on the ids.
+# library(smappR)
+# followersIDs <- readLines("../data/followers_info/ids/realDonaldTrump.txt")
+# followers_info <- getUsersBatch(ids=followersIDs[1:4740000],oauth_folder = './credentials/credential_mixed04/', output = '../data/followers_info/jsons/trump4740k.json',verbose = T, random= F)
+
+#-- 5673801 before " 3171250421"
+
+## download some followers before Nov 8, 2016
+# followersIDs <- readLines("../data/followers_info/ids/realDonaldTrump-Jan08-ids.txt")
+# which(followersIDs == "723431687984553984") 
+# 
+# f1 <- readLines("../data/followers_info/ids/realDonaldTrump.txt")
+# length(f1) #12190022
+# 13e6- 12190022
+# 
+# idx1 <- which(followersIDs == "723431687984553984") - (13e6 - 12190022)
+# idx2 <- which(followersIDs == "723431687984553984") - 1 
+# 
+# followers_info <- getUsersBatch(ids=followersIDs[idx1:idx2], 
+#                                 oauth_folder = './credentials/credential_mixed04/', 
+#                                 output = '../data/followers_info/jsons/trump13M.json', 
+#                                 verbose = T, random= F)
+
+
+id_count <- read.csv("../data/followers_info/jsons/id_counts.csv", 
+                     colClasses = c("integer", "integer", "character", "character", "character"))
+id_count2 <- read.csv("../data/followers_info/jsons/id_counts_2.csv", 
+                      colClasses = c("integer", "integer", "character", "character", "character"))
+sum(id_count$followers_count)
+sum(id_count2$followers_count) #over flow
+
+sum(id_count2$followers_count%/%10) 
+sum(id_count2$followers_count%%10)
+#336470842, 27128316
+(336470842*10+27128316)  #3391836736 --
+sum(id_count$followers_count)/(336470842*10+27128316)*244798
+``` 
+
+
+
+### Mar 13, 2017
+download the friends info It is divided into 4 parts, should be equivalent, but they differ so much.
+I really not sure what went wrong.. -- keep checking on this. 
+--62k, 61k, 61k, 61k.
+-- friends (>=5) 6M, .. 1M
+-- files edgelist size 3G --> 1G
+
+~~ should I reorganize the order of the nodes interms of time.
+
+
+### Mar 10, 2017
+1, After initial cleaning, convert .json to .csv, analyze the logs the original folder containing .json are removed  -- script: 
+first t01, t10 are removed
+
+2, reconsturct the graph, the original one probably deleted accidently.
+
+3, download Trump followers
+
+4, trump followers friends list, 4 parts obtained via random partition, but their volume
+range from 2G, 1.1G, 0.8G, 0.7G.
+I just download another time to varify whether there is any mistake.
+
+```{r}
+
+#"../data/friends_info/edgelist_Feb27/timelines/analyze_logs.R"
+followerIds <- getFollowers(screen_name = 'realDonaldTrump',oauth_folder = './credentials/credential_mixed02/',output = "../data/followers_info/ids/trumpFollowerIds-2017-03-10.txt")
+#first cursor :1561515998623202547
+
+
+
+``` 
+
+
+
+### Mar 6, 2017
+The parallel downloading stops at 12:51 PM Mar 4 altogether. 
+figured out the cause is storage is used up. total 500 G; each followers, 3M is used to store 3200 tweets. each twees ~ 1k
+
+# construct Graph
+keeping throw memory error
+
+Diagnosis
+
+
+### Feb25, 2017
+think about how to download friends list in parallel
+
+```{r}
+downloadFriendlistParallel <- function (SN1, my_oauth_folder, output){
+  
+  conn = file(output, 'w') 
+  for ( i in 1:length(SN1)){  
+    #5607, 8840, 17599 00:01/ Oct18
+    #i =1 #sn ="DivinemLee"  #1300 friends
+    sn = SN1[i]
+    friendIDs <- tryCatch(
+      {
+        getFriends(screen_name=sn, oauth_folder = my_oauth_folder,
+                   cursor=-1, user_id=NULL, verbose=TRUE, sleep=1)
+      }, error = function(cond){
+        message(cond)
+        return (NA)
+      }, warning = function(cond){
+        message(cond)
+        return (NA)
+      }
+    )                    
+    write(paste(c(sn,friendIDs), collapse = ','), file  = output, append = TRUE, sep = '\n')
+    message("i--", i," users have been processed")
+  }
+  close(conn) # unitl close ,the data will be written. kind of dangerous if
+}
+```
+
+
+### Feb 17, 2017
+clean the json file in trump07-trump15, total 6.4M 
+sample from proportionally from there, with same proportion as 1-5.77M.  assume this by calculating the total number of samples,
+
+```{r,eval = F}
+rm(list =ls())
+library(smappR)
+my_oauth_folder <- "./credentials/credential_mixed1/"
+
+# sn = 'swang282'
+# sn = 'jure'
+sn = "realDonaldTrump"
+followers_IDs <- getFollowers(sn, cursor = -1, oauth_folder = my_oauth_folder, sleep = 30) #mutiple 5k
+writeLines(followers_IDs, con = paste0("/p/stat/songwang/trump_newfollowers/ids/", 
+                                sn,"_",Sys.Date(),"_ids.txt"))
+
+
+```
+
+when I check some downloaded items in Oct,
+[{"message":["Over capacity"],"code":[130]}] -- google says, this is due to Twitter is busy responding users' request.
+### Feb 6
+documentations is very important, get the best data in time is important. Download better data as soon as you have time, or at the same times as you just download the approximatation data.
+
+
+Feb 6, download the 3200 tweets from timelines -- of 75XXX, 76k followers
+
+Jan 31, move the data from my local server to peach, under /data/SongWang
+
+
+time of data sets:
+trump followers secreen names Oct 11, 2016
+edgelist downloaded on  Oct 25 finished
+friendslist Oct 26, inferred from time on of the generated file
+followers timeline  Dec 6-8, 1200 tweets   ;    200 tweets, Nov 18,
+a lot of other streaming twitters related to Trump
+
+
+
+### Jan 8, 2017, 
+write the report
+
+
+### Dec 6, 
+downloaded the top 1200 tweets from each followers's timeline -- better approximation
+ need to evaluate the approximation, to see how many of them have more tweets than 1200 tweets
+
+### Nov 18,
+downloaded the top 200 tweets from each followers' timeline
+
+### Nov 13, 2016
+1. re-check the analysis did before
+-- column scaled by the inverse column deg
+-- column normalized by sqrt(total # of followers), the reflecting its importance in the who population
+-- Alternatively, scaled by #followers in the sampled graph/ total #followers
+or sqrt of the values. give high weight to followers that are particularly followed in the sample. However, I think, this may not be helpful in reflecting the distinguishing power withinthe sample. 
+
+-- how to select something both related to trump(this group); and that can distinguishing groups within the groups
+
+-- row nomalization 1) sqrt(row deg) 2) row norm. both with regularizations to reduce the effects of low-degree nodes.
+ 
+
+### Nov 7, 2016
+```{r, eval= F}
+conn <- file(filename, 'wt')
+writeLines(a, con = conn, sep = '\t')  #default sep is '\n'
+close(conn)
+```
+
+
+### Oct31, 2016
+k-means  Warning: Quick-TRANSfer stage steps exceeded maximum
+###
+
+### Oct 28, 2016 
+
+-- Try some new ideas in the learnning the network structures
+Question 1 : should I consider this as a bipartite graph or as a directed graph.
+
+Answer: both are the same. because we are using SVD method.  Directed graph allows rows and cols to have overlap, while
+bipartite graph typically don't have overlap among rows and cols
+The difference here may not be very big since the overlapping is not very big. Besides,
+I am not sure about clustering in directed graph -- interpretations: follower equivalance or
+
+
+-- downloading another 100K sample
+```{r, eval= F}
+samp <- read.csv(file ="../data/followers_info/jsons/sample10000.csv", 
+header = T, stringsAsFactors = F)
+SNs <- read.csv(file = "../data/followers_info/jsons/id_counts.csv", header =T, stringsAsFactors = F)
+SN1 <- SNs$screen_name[samp[,2]]  #random
+SN2 <- SNs$screen_name[samp[,3]]  #non-random
+   
+my_oauth_folder <- "./credentials/credential_mixed3"
+output <- "../data/friends_info/non-random100K.txt"
+conn = file(output, 'w') 
+for ( i in 1:length(SN1)){  #5607, 8840, 17599 00:01/ Oct18
+    #i =1 #sn ="DivinemLee"  #1300 friends
+    sn = SN1[i]
+    friendIDs <- tryCatch(
+      {
+         getFriends(screen_name=sn, oauth_folder = my_oauth_folder,
+                        cursor=-1, user_id=NULL, verbose=TRUE, sleep=1)
+      }, error = function(cond){
+         message(cond)
+         return (NA)
+      }, warning = function(cond){
+         message(cond)
+         return (NA)
+      }
+    )                    
+    write(paste(c(sn,friendIDs), collapse = ','), file  = output, sep = '\n', append = TRUE) 
+    message("i--", i," users have been processed")
+}
+close(conn) # unitl close ,the data will be written. kind of dangerous if collapsed.
+
+my_oauth_folder <- "./credentials/credential_mixed2"
+output <- "../data/friends_info/random100K.txt"
+conn = file(output, 'w') 
+for ( i in 1:length(SN2)){
+    #i =1 #sn ="DivinemLee"  #1300 friends
+    sn = SN2[i]
+    friendIDs <- tryCatch(
+      {
+         getFriends(screen_name=sn, oauth_folder = my_oauth_folder,
+                        cursor=-1, user_id=NULL, verbose=TRUE, sleep=1)
+      }, error = function(cond){
+         message(cond)
+         return (NA)
+      }, warning = function(cond){
+         message(cond)
+         return (NA)
+      }
+    )                    
+    writeLines(paste(c(sn,friendIDs), collapse = ','), con = conn) 
+    message("i--", i," users have been processed")
+}
+close(conn)
+```
+###Oct 26, 2016
+ --1, writing report 
+
+ --2, further analysis
+
+
+###Oct 25, 2016
+
+-- 1, Analyze the Trump's follower-friends network.
+```{r, eval= F}
+library(igraph)
+library(Matrix)
+edgelist = read.csv("../data/followers_Network/edgelist-random100K.csv", stringsAsFactors = F)
+edgelist[,1] <- paste0("V", edgelist[,1])
+edgelist[,2] <- paste0("W", edgelist[,2])
+#edgelist <- edgelist[,c(2,1), with = FALSE]
+g <- graph_from_edgelist(as.matrix(edgelist),directed = T)
+
+is.connected(g) #TRUE
+vcount(g)  #259184
+ecount(g) #5526061
+A <- get.adjacency(g)
+deg.out <- rowSums(A); deg.in <- colSums(A)
+followers <- which(deg.in == 0)  #45512
+friends <- which(deg.in>0)     #213672 items
+A <- A[followers, friends]  
+ 
+id.trump = which.max(colSums(A))
+A1 <- A[ ,-id.trump]  # remove trump
+deg.in <- colSums(A1); deg.out <- rowSums(A1)
+tau.in = sqrt(mean(deg.in))
+tau.out = sqrt(mean(deg.out))
+L1 <- Diagonal(n = length(deg.out), (deg.out+tau.out)^(-1/2))%*%A1 %*% Diagonal(length(deg.in), (deg.in+tau.in)^(-1/2)) 
+
+library(irlba)
+svd_L1 <- irlba(L1, 50)
+
+save(svd_L1, file = "../data/followers_Network/svd_L1.RData")
+write.table(svd_L1$u, file = "../data/followers_Network/svd_L1_u.txt",row.names = F)
+write.table(svd_L1$v, file = "../data/followers_Network/svd_L1_v.txt",row.names = F)
+write.table(svd_L1$d, file = "../data/followers_Network/svd_L1_d.txt",row.names = F)
+
+plot(svd_L1$d)
+k =12
+km_row = kmean(svd_L1$u[,1:k] , k, iter.max =50) 
+km_col = kmean(svd_L1$v[,1:k] , k, iter.max =50) 
+
+
+# on the non-random 100K
+edgelist = read.csv("../data/followers_Network/edgelist-non-random100K.csv", stringsAsFactors = F)
+edgelist[,1] <- paste0("V", edgelist[,1])
+edgelist[,2] <- paste0("W", edgelist[,2])
+#edgelist <- edgelist[,c(2,1), with = FALSE]
+g <- graph_from_edgelist(as.matrix(edgelist),directed = T)
+
+is.connected(g) #TRUE
+vcount(g)  #259184
+ecount(g) #5526061
+A <- get.adjacency(g)
+deg.out <- rowSums(A); deg.in <- colSums(A)
+followers <- which(deg.in == 0)  #45512
+friends <- which(deg.in>0)     #213672 items
+A <- A[followers, friends]  
+ 
+id.trump = which.max(colSums(A))
+A2 <- A[ ,-id.trump]  # remove trump
+deg.in <- colSums(A2); deg.out <- rowSums(A2)
+tau.in = sqrt(mean(deg.in))
+tau.out = sqrt(mean(deg.out))
+L2 <- Diagonal(n = length(deg.out), (deg.out+tau.out)^(-1/2))%*%A2 %*% Diagonal(length(deg.in), (deg.in+tau.in)^(-1/2)) 
+
+library(irlba)
+svd_L2 <- irlba(L2, 50)
+
+save(svd_L2, file = "../data/followers_Network/svd_L2.RData")
+write.table(svd_L2$u, file = "../data/followers_Network/svd_L2_u.txt",row.names = F)
+write.table(svd_L2$v, file = "../data/followers_Network/svd_L2_v.txt",row.names = F)
+write.table(svd_L2$d, file = "../data/followers_Network/svd_L2_d.txt",row.names = F)
+
+plot(svd_L2$d)
+k = 16
+km_row = kmeans(svd_L2$u[,1:16] , 16, iter.max =50) 
+km_col = kmeans(svd_L2$v[,1:16] , 16, iter.max =50) 
+```
+
+
+-- 2, Download the selected friends info
+```{r, eval= F}
+data1 <- read.csv("../data/followers_Network/friendsIDs-random100K.csv", stringsAsFactors = F)
+friendsIDs1 <- data1$friends_id_str
+my_oauth_folder <- "./credentials/credential_mixed3"
+followersInfo <- getUsersBatch(ids = friendsIDs1, oauth_folder = my_oauth_folder,
+            include_entities = TRUE, verbose = TRUE, 
+            output = paste0("../data/followers_Network/friends_random100K_info.json"))
+
+
+data2 <- read.csv("../data/followers_Network/friendsIDs-non-random100K.csv", stringsAsFactors = F)
+friendsIDs2 <- data2$friends_id_str
+
+my_oauth_folder <- "./credentials/credential_mixed2"
+followersInfo <- getUsersBatch(ids = friendsIDs2, oauth_folder = my_oauth_folder,
+            include_entities = TRUE, verbose = TRUE, 
+            output = paste0("../data/followers_Network/friends_non-random100K_info.json"))
+
+```
+###Oct 16, 2016
+-- Notice -- 
+1, when downloading the the friends of followers. "3 API calls left   Authorization Required
+i--4868 users have been processed". from non-random 100K;  check to see why?
+
+2, analyze the followers sample 1000*120K network
+
+3 conn = file(output, 'w') ; writeLines(x , con = conn); close(conn)
+write(x =" ", file = PATH, append =TRUE,  sep ='\n')
+
+the existing file will get overwritten
+  
+  
+```{r, eval= F}
+for ( i in 5607:length(SN1) ){
+    #i =1 #sn ="DivinemLee"  #1300 friends
+    sn = SN1[i]
+    friendIDs <- tryCatch(
+      {
+         getFriends(screen_name=sn, oauth_folder = my_oauth_folder,
+                        cursor=-1, user_id=NULL, verbose=TRUE, sleep=1)
+      }, error = function(cond){
+         message(cond)
+         return (NA)
+      }, warning = function(cond){
+         message(cond)
+         return (NA)
+      }
+    )                    
+    write(paste(c(sn,friendIDs), collapse = ','), file  = output, sep = '\n', append = TRUE) 
+    message("i--", i," users have been processed")
+}
+```
+
+4, split the big files into small ones
+for( i in 3:)
+i = 3
+write(trump4[((i-1)*800000+1):(i*800000)], file =  paste0("../data/followers_info/jsons/trump0",(i+6),".json"))
+for(i in 4:9){
+write(trump4[((i-1)*800000+1):(i*800000)], file =  paste0("../data/followers_info/jsons/trump",(i+6),".json"))
+}
+i=10
+write(trump4[((i-1)*800000+1):length(trump4)], file =  paste0("../data/followers_info/jsons/trump",(i+6),".json"))
+
+
+5, analyze the bipartite graph based on data:
+
+../data/friends_info/non-random1000 : non-random1000.txt -- barpartite; follower_info.json -- 980 followers; friendsInfo.json -- 126812.
+
+see non-random1000.R
+###Oct 13 - 15, 2016, 
+
+
+1, sample 100k from trump followers, proportional to their followerCount
+   sample 100K random folloers 
+   the population here is the latest 6M users
+   
+   -- how to analysis the downloaded json data using smappR R package -- 
+```{r, eval= FALSE}   
+#  read json file in R
+   library(jsonlite)
+   source(function.R)
+   trump1 <- readLines("../data/followers_info/jsons/realDonaldTrump_screen-names.json")
+   trump2 <- readLines("../data/followers_info/jsons/realDonaldTrump_screen-names_740K.json")
+   trump <- c(trump1,trump2)   #4205389 items
+   vlidateIDs <- sapply(trump, function(x) vlidate(x))  
+   #validate{jsonlite} chracter vectors will be collapsed into a single string and test if a string contains valid JSON
+   
+   rm(trump1, trump2)
+   trump.json <- myToJSON(trump) # remove invid ones, add a '[]'
+   #Error in paste(data.json, collapse = ",") :  result would exceed 2^31-1 bytes
+   trump1 <- trump[1:2100000]
+> trump <- trump[2100001:4205389]  
+> source("function.R")
+> trump1.json <- myToJSON(trump1)  # still error
+```
+
+
+-- Using python code to read in the json data and do the sampling
+
+-- total there are 5188806 followers as our population. 
+
+```{r,eval= F}
+samp <- read.csv(file ="../data/followers_info/jsons/sample100000.csv", 
+header = T, stringsAsFactors = F)
+SNs <- read.csv(file = "../data/followers_info/jsons/id_counts.csv", header =T, stringsAsFactors = F)
+SN1 <- SNs$screen_name[samp[,2]]
+SN2 <- SNs$screen_name[samp[,3]]
+   
+my_oauth_folder <- "./credentials/credential_mixed3"
+output <- "../data/friends_info/non-random100K.txt"
+conn = file(output, 'w') 
+for ( i in 17601:length(SN1)){  #5607, 8840, 17599 00:01/ Oct18
+    #i =1 #sn ="DivinemLee"  #1300 friends
+    sn = SN1[i]
+    friendIDs <- tryCatch(
+      {
+         getFriends(screen_name=sn, oauth_folder = my_oauth_folder,
+                        cursor=-1, user_id=NULL, verbose=TRUE, sleep=1)
+      }, error = function(cond){
+         message(cond)
+         return (NA)
+      }, warning = function(cond){
+         message(cond)
+         return (NA)
+      }
+    )                    
+    write(paste(c(sn,friendIDs), collapse = ','), file  = output, sep = '\n', append = TRUE) 
+    message("i--", i," users have been processed")
+}
+close(conn) # unitl close ,the data will be written. kind of dangerous if collapsed.
+
+my_oauth_folder <- "./credentials/credential_mixed2"
+output <- "../data/friends_info/random100K.txt"
+conn = file(output, 'w') 
+for ( i in 1:length(SN2)){
+    #i =1 #sn ="DivinemLee"  #1300 friends
+    sn = SN2[i]
+    friendIDs <- tryCatch(
+      {
+         getFriends(screen_name=sn, oauth_folder = my_oauth_folder,
+                        cursor=-1, user_id=NULL, verbose=TRUE, sleep=1)
+      }, error = function(cond){
+         message(cond)
+         return (NA)
+      }, warning = function(cond){
+         message(cond)
+         return (NA)
+      }
+    )                    
+    writeLines(paste(c(sn,friendIDs), collapse = ','), con = conn) 
+    message("i--", i," users have been processed")
+}
+close(conn)
+```
+
+--- To be done: after downloaded this, we need check why some items are missing.
+
+
+
+
+### --- Oct 12, 2016
+####1, Clinton followers IDs done
+####2, correction 
+-- download friends, encounter a problem where the users no longer exists any more.
+--  address this issue by introducing an tryCatch statement in the loop
+```{r, eval = F}
+logit <- function(x){
+ if( any(x < 0 | x > 1) ) stop('x not between 0 and 1')
+ log(x / (1 - x) )
+}
+
+x <- c(0.5,0.3,1,4,0.6)
+logit_x <- numeric(length(x))
+for(i in 1:length(x)){
+ t <- x[i]
+ logit_x[i] <- tryCatch(
+    {    
+    logit(t)
+    }, error= function(cond){
+      message(cond,"\n")
+      return (NA)
+    }, warning = function(warn) {
+      message(warn)
+      return (NA)
+    }
+ )
+}
+```
+####3, Trump's 2n rounr,d Clition's first round of followers are on.
+####4, kill all the other four seperate ways to download trump's followers' friends
+####5, batch download the users info based on friendIDs -- 1000
+
+```{r, eval=F}
+friendList <- readLines("../data/friends_info/non-random1000/non-random1000.txt")
+followerSNs <- sapply(friendList, function(x) unlist(strsplit(x, split = ","))[1])
+friendCounts <- sapply(friendList, function(x) length(unlist(strsplit(x, split = ",")))-1)
+friendIDs <- lapply(friendList, 
+   function(x) {
+      a <- unlist(strsplit(x, split = ","))
+      return(a[-1])
+    } )
+friendIDs <-   unlist(friendIDs) 
+(legnth(friendIDs)) #7508494 
+sum(friendIDs =='NA') ##69 NA, 69/1000 users, their friends not downloaded correctly
+
+freq <- table(friendIDs)  # in R, sort and count, little slow
+length(freq)  #5423593
+IDs <- names(freq)      #5423593  
+freq[which(IDs == 'NA')] #expected 20, in fact 69
+friendIDs <- IDs[which(freq >= 5)]  #126812
+friendIDs <- friendIDs[-which(friendIDs == 'NA')] #remove 'NA'
+my_oauth_folder <- "./credentials/credential_mixed3"
+followersInfo <- getUsersBatch(screen_names = followerSNs, oauth_folder = my_oauth_folder,
+            include_entities = TRUE, verbose = TRUE, 
+            output = paste0("../data/friends_info/non-random1000/follower_info.json"))
+
+#download the friends info
+friendInfo <- getUsersBatch(ids = friendIDs, oauth_folder = my_oauth_folder, 
+            include_entities = TRUE, verbose = TRUE, 
+            output = paste0("../data/friends_info/non-random1000/friends_info.json"))
+nrow(friendsInfo)
+names(friendsInfo)
+```
+
+####output notes:
+--- 20 terms no data, due to privacy
+--- 49 missing account
+--- 931/100, have their friends list downloaded
+---issue, many account are missing closed or not open --20/1000
+---issue 2, too many different users, need some threshold, say 5 users, many appear one/two times
+
+
+
+
+
+
+
+
+
+
+
+
+###---- Oct 11, 2016
+downloading HillaryClinton's followers, break down 
+4 million, cursor = 1528841331513232537
+restart :
+```{r, eval= F}
+sn = "HillaryClinton"
+output_file <- file.path("../data/followers_info/ids",paste0(sn,".txt")) 
+if (!file.exists(output_file)){
+  file.create(output_file)
+}else{
+  message(output_file, " exists alreday")
+}
+getFollowers_file(screen_name= sn, oauth_folder ="./credentials/credential_mixed",
+output_file = output_file,
+sleep =30, cursor = 1528841331513232537)
+
+
+#using k =2,3,4, starting 13:25 Oct 11, 2016
+
+#sn ="HillaryClinton"
+#list.files("./credentials/credential_mixed2")
+sn ="HillaryClinton"
+my_oauth_folder <- "./credentials/credential_mixed2"
+followerIDs <- readLines("../data/followers_info/ids/HillaryClinton.txt") #4840000
+followers <- getUsersBatch(ids = followerIDs, oauth_folder = my_oauth_folder, 
+            include_entities = TRUE, verbose = TRUE, 
+            output = paste0("../data/followers_info/jsons/",sn,"_screen-names.json"))
+
+
+#using k =1,9,10,
+#sn ="HillaryClinton"
+screenNames <- read.csv("../data/SNs.txt",header = T, stringsAsFactors = F)
+SNs <- screenNames[,2] #a sample selected proportional to their followers
+my_oauth_folder <- "./credentials/credential_mixed3"
+output <- "../data/friends_info/non-random1000.txt"
+conn = file(output, 'w') 
+for ( i in 72:length(SNs)){
+    #i =1 #sn ="DivinemLee"  #1300 friends
+    sn = SNs[i]
+    friendIDs <- tryCatch(
+      {
+         getFriends(screen_name=sn, oauth_folder = my_oauth_folder,
+                        cursor=-1, user_id=NULL, verbose=TRUE, sleep=1)
+      }, error = function(cond){
+         message(cond)
+         return (NA)
+      }, warning = function(cond){
+         message(cond)
+         return (NA)
+      }
+    )                    
+    writeLines(paste(c(sn,friendIDs), collapse = ','), con = conn) 
+    message("i--", i," users have been processed")
+}
+close(conn)
+```
+In the getFriend function, the limit is well controlled. rate-limit <= 180 and friend requests limit < 15 each application. It is unlike anything will go wrong. based on rule that sleep 5 mins when ratelimit <100 -- keep check rates when there is no friends requests left. 
+My understanding is that every 45 most friends list requests, the algorithm will go through on check --
+is the rate-limit below 100. worst case,  
+when there are 100 left, start a new round of 45 requests, after this round, there are 55 limits left -- sleep 5 mins;
+after 5 mins, another 45 requests, 10 limits left; sleep 5 mins, the requests could have recovered either, sleep another 5mins, until limits >=100 or there are some friends requests available -- this may require at most two limit requests. 
+
+
+
+-- downloading second round of Trump's followers
+```{r ,eval=F}
+library(smappR)
+sn = "realDonaldTrump"
+my_oauth_folder <- paste0("./credentials/credential_mixed",)
+followerIDs <- readLines("../data/followers_info/ids/realDonaldTrump.txt") #12190022 Oct10, 5:51AM done
+followerIDs <- followerIDs[4740001:length(followerIDs)]
+followers <- getUsersBatch(ids = followerIDs, oauth_folder = my_oauth_folder, 
+             include_entities = TRUE, verbose = TRUE, 
+             output = paste0("../data/followers_info/jsons/",sn,"_screen-names_4.74M.json"))
+# 933800 are done,
+
+followerIDs <- followerIDs[933801:length(followerIDs)]
+followers <- getUsersBatch(ids = followerIDs, oauth_folder = my_oauth_folder, 
+             include_entities = TRUE, verbose = TRUE, 
+             output = paste0("../data/followers_info/jsons/",sn,"_screen-names_5-7738M.json"))
+```

@@ -1,7 +1,5 @@
 
 
-rm(list =ls())
-
 library(Matrix)
 library(igraph)
 library(tidyverse)
@@ -16,7 +14,7 @@ my_pagerank <- function(A, vids = NULL, tol = 1e-6, iter.max =100, verbose = T){
   zero_ids <- which(D==0); 
   D1 <- D; D1[D>0] <- D[D>0]^(-1)
   P <- t(A) %*% Matrix::Diagonal(N, D1)
-  rm(D, Dr, A)
+  rm(D, D1, A)
   #P[,which(D==0)] <- 1/N will be dense!!
   if (is.null(vids)){
     J <- as.matrix(rep(1/N, N))
@@ -42,8 +40,7 @@ my_pagerank <- function(A, vids = NULL, tol = 1e-6, iter.max =100, verbose = T){
 
 
 ## part 1, toy example about my_pagerank
-g <- graph(c(
-  1, 2, 1, 3, 1, 4, 
+g <- graph(c(1, 2, 1, 3, 1, 4, 
   2, 3, 2, 6, 3, 1, 
   3, 5, 4, 2, 4, 1, 
   4, 5, 5, 2, 5, 6, 
@@ -63,7 +60,7 @@ v <- e$vec[,1]
 v <- as.numeric(v) / sum(as.numeric(v))
 v
 
-my_pagerank(M0)
+my_pagerank(M0, verbose = F)
 
 page_rank(g)$vector
 
@@ -86,6 +83,7 @@ as.numeric(r)
 followers <- read.csv("../results_following/followers_with_cluster_info.csv", colClasses = c("character"))
 all_samp <- read.csv("../data/friends_info/edgelist_Feb27/all_samp_info.csv", colClasses = c("character"))
 
+#check whether id_str work properly
 idx1 <- match(followers$screen_name, all_samp$screen_name);  stopifnot(sum(is.na(idx1)) == 0)
 idx2 <- match(followers$id_str, all_samp$id_str); stopifnot(sum(is.na(idx2))==0)
 which(idx1 != idx2)
@@ -93,10 +91,11 @@ which(idx1 != idx2)
 
 
 
-#Part 2 : network among trump followers: 277725 x 277725
+#Part 2 : network among trump followers: 377725 x 377725
 load("../data/friends_info/edgelist_Feb27/RData/adj_followers_ego.RData") #adj_list_ids, sns
 library(igraph)
 G <- graph_from_adj_list(adj_list_ids)  #max(unlist(adj_list_ids))
+V(G)$name <- sns
 ecount(G) #20766474
 vcount(G) #377725
 Dr = degree(G, mode = 'out'); sum(Dr == 0)/length(Dr) #65.8% are zero
@@ -105,10 +104,28 @@ D = degree(G, mode = 'all'); sum(D == 0)/length(D)    #12.6 %
 
 pg1 <- page_rank(G)
 p0 = rep(0, vcount(G))
-p0[which(all_samp$verified =='True')]=1; p0 <- p0/sum(p0)
+p0[which(followers$verified =='True')]=1; p0 <- p0/sum(p0)
 pg_personalized = page_rank(G, personalized = p0)
-output <- data.frame(id = sns, pagerank = pg1$vector, pg_personalized = pg_personalized$vector)
-#write.csv(output, file = "../results_following/pagerank1.csv",row.names = F)
+output <- data.frame(screen_name = sns, pagerank = pg1$vector, pg_personalized = pg_personalized$vector)
+
+
+# 3-core
+cores = graph.coreness(G)
+barplot(table(cores))
+idx <- which( cores >=3 )
+g1 <- induced.subgraph(G,v = idx); vcount(g1)
+is.connected(g1); clus= clusters(g1, mode = 'weak'); table(clus$membership)
+
+pg1_3 <- page_rank(g1)
+p0 <- rep(0, vcount(g1)); 
+p0[followers$verified[match(V(g1)$name, followers$screen_name)] == 'True'] <- 1; p0<-p0/sum(p0)
+table(followers$verified[match(V(g1)$name, followers$screen_name)] == 'True')
+table(followers$verified)
+pg1_p_3 <- page_rank(g1,personalized = p0)
+tmp <- data.frame(screen_name = V(g1)$name, pg_core3= pg1_3$vector, pg_p_core3 = pg1_p_3$vector)
+
+output <- output %>% left_join(tmp, by ="screen_name")
+write.csv(output, file ="../results_following/pagerank1.csv", row.names = F)
 
 
 
@@ -117,13 +134,13 @@ output <- read.csv("../results_following/pagerank1.csv", colClasses = c("charact
 output$pagerank <- as.numeric(output$pagerank)   
 output$pg_personalized <- as.numeric(output$pg_personalized)
 
-#followers <- read.csv("../results_following/followers_with_cluster_info.csv", colClasses = c("character"))
-dat = followers[,c("screen_name", "verified")] %>% left_join(output, by = "screen_name") %>% 
+followers <- read.csv("../results_following/followers_with_cluster_info.csv", colClasses = c("character"))
+dat = followers[,c("screen_name", "verified")] %>% left_join(output, by = c( "screen_name" = "id")) %>% 
   mutate(logpg = log10(pagerank)) %>% mutate(logpg_personalized = log10(pg_personalized))
 dat$verified <- as.factor(dat$verified)
 
 ggplot(dat, aes(logpg)) + stat_ecdf(geom="step",aes( color = verified )) +
-  labs(x= "pagerank (in log10)", y = "cumulative probability")+facet_grid(verified~.)
+  labs(x= "pagerank (in log10)", y = "cumulative probability")
 ggplot(dat, aes(logpg, ..density..))+geom_histogram(aes(color=verified), 
                                                     bins =100, position = "stack") +facet_grid(verified~.)
 ggplot(dat, aes(logpg, color=verified, fill = verified ))+

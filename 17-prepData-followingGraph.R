@@ -165,23 +165,25 @@ Min.   1st Qu.    Median      Mean   3rd Qu.      Max.
 ## network among 377725 followes themselves. -- "../data/friends_info/edgelist_Feb27/RData/adj_followers_ego.RData"
 
 #adjlistall <- readLines("../data/friends_info/edgelist_Feb27/originalData/adjlist_all.txt")
+library(doParallel)
 load("../data/friends_info/edgelist_Feb27/originalData/adjlist_all.RData") #377809 -> 377725 (delete 84)
+followers <- read.csv("../results_following/followers_with_cluster_info.csv", colClasses = c("character"))
 library(parallel)
 sns <- unlist(mclapply(adjlist_all, function(x) gsub("(.*?),.*", replace = "\\1", x), mc.cores = 10))
 
 idx <- match(followers$screen_name, sns)
 stopifnot(sum(is.na(idx)) == 0)
-
 sub_ids = followers$id_str  
-idx <- match(followers$screen_name, sns) 
 adjlist_str <- adjlist_all[idx]
+sns <- sns[idx]
 
 adj_list <-  mclapply(adjlist_str, FUN =function(x) strsplit(x, split = ',') , mc.cores=5) 
 #encounter various problems
 #Error in sendMaster(try(lapply(X = S, FUN = FUN, ...), silent = TRUE)) : 
 #  long vectors not supported yet: fork.c:376
+#change to mc.cores =1
 
-#adj_list = lapply(adjlist_str, function(x) strsplit(x, split = ',')) #single thread
+adj_list = lapply(adjlist_str, function(x) strsplit(x, split = ',')) #single thread
 adj_list1 = mclapply(adj_list, function(x) {
   xx = unlist(x); idx = match(sub_ids, xx);
   xx[idx[!is.na(idx)]] #keep friends in sub_ids only. return chr(0) if follows no people; 
@@ -189,7 +191,7 @@ adj_list1 = mclapply(adj_list, function(x) {
 adj_list_ids <- mclapply(adj_list1, function(x){
   xx = unlist(x)
   match(xx, sub_ids)
-}, mc.cores = 5)
+}, mc.cores = )
 save(adj_list_ids, sns, file = "../data/friends_info/edgelist_Feb27/RData/adj_followers_ego.RData")
 
 

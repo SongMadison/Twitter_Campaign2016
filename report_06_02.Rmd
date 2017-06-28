@@ -13,11 +13,12 @@ library(tidyverse) #include ggplot2, dyplyr, readr, tydyr
 library(dygraphs) # dynamic graph
 library(xts)
 library(Matrix)
+theme_update(plot.title = element_text(hjust = 0.5))
 
 ```
 
 
-```{r process data, include=FALSE, eval=FALSE}
+```{r process data, include=FALSE, eval = FALSE}
 #Read in followers
 followers <- read.csv("../results_following/followers_with_cluster_info.csv", colClasses = c("character"))
 
@@ -57,7 +58,7 @@ followers$period <- as.factor(match(followers$period, new_levels))
 followers$period <- factor(followers$period, 1:3, new_levels)
 table(followers$period)
 
-save(followers, file ="../report/2017-05-27/report_0612.RData")
+save(followers, file ="../report/2017-05-27/report_0626.RData")
 
 ```
 
@@ -96,7 +97,7 @@ Two pagerank scores presented here
 
 ```{r loading data, echo =FALSE }
 #load("../report/2017-05-27/report_0601.RData")
-load("../report/2017-05-27/report_0612.RData")
+load("../report/2017-05-27/report_0626.RData")
 followers$clust_cat <- addNA(followers$clust_cat)
 levels(followers$clust_cat)[9] <- "NA"
 source("function.R")
@@ -108,143 +109,150 @@ p0 <- followers %>% group_by(period, clust_cat) %>% summarise(count = n()) %>%
   ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
   geom_bar(stat = "identity" ) +
   geom_text(size = 3, position = position_stack(vjust = 0.5)) +
-  scale_fill_brewer(palette="Spectral") +xlab("")
+  scale_fill_brewer(palette="Spectral") +xlab("")+ggtitle("full data")
 ```
 
 
 ### Two pageranks
 
-```{r pagerank1, echo =FALSE, warning=FALSE, fig.width=8, fig.height=6}
-## some analysis on the page ranks w.r.t. verified account.
-#G <- graph_from_edgelist(el,directed = T)
-#pg <- page_rank(G)
-library(tidyverse)
-dat <- followers[,c("screen_name", "verified",'pg1','pg2','pg1_personalized', 'pg2_personalized')]
-dat <- dat%>%mutate(logpg1 = log10(pg1)) %>% mutate(logpg2 = log10(pg2)) %>% 
-  mutate(logpg1_personalized = log10(pg1_personalized))%>%
-  mutate(logpg2_personalized = log10(pg2_personalized))
-dat$verified <- as.factor(dat$verified)
-```
+
 
 **pagerank 1 (w/o personalization)**
 
 ```{r, echo =FALSE, warning=FALSE, fig.width=8, fig.height=6}
-p11 <- ggplot(dat, aes(logpg1)) + stat_ecdf(geom="step",aes(group = verified, color = verified )) + 
-  labs(x= "pagerank (in log10)", y = "cumulative probability")
-p12 <- ggplot(dat, aes(logpg1, ..density..))+
-  geom_histogram(aes(color=verified,  group = verified),  bins =100, position = "stack")+
-  labs(x= "pagerank (in log10)")
-p13 <- ggplot(dat, aes(logpg1, color=verified, fill = verified ))+
-  geom_density(aes(  group = verified), alpha =0.1,   position = "stack")+ labs(x= "pagerank (in log10)")
+p11 <- followers %>% ggplot(aes(x = log10(pg1))) + stat_ecdf(geom="step", aes(group = verified, color = verified )) +labs(x= "pagerank (in log10)", y = "cumulative probability") + ggtitle("pagerank1")
 
-multiplot(p11, p12, p13,  cols = 2)
+p12 <- followers %>% ggplot(aes(x = log10(pg1_personalized))) + stat_ecdf(geom="step",aes(group = verified, color = verified )) +  labs(x= "pagerank (in log10)", y = "cumulative probability") + ggtitle("pagerank1 personalized")
+
+multiplot(p11, p12,  cols = 2)
+
+# p12 <- ggplot(dat, aes(logpg1, ..density..))+
+#   geom_histogram(aes(color=verified,  group = verified),  bins =100, position = "stack")+
+#   labs(x= "pagerank (in log10)")
+# p13 <- ggplot(dat, aes(logpg1, color=verified, fill = verified ))+
+#   geom_density(aes(  group = verified), alpha =0.1,   position = "stack")+ labs(x= "pagerank (in log10)")
+# multiplot(p11, p12, p13,  cols = 2)
 ```
 
 
 
 
 ```{r, echo =FALSE, warning=FALSE, fig.width=8, fig.height=6}
-p11_1 <- ggplot(dat, aes(logpg1_personalized)) + stat_ecdf(geom="step",aes(group = verified, color = verified )) + 
-  labs(x= "pagerank (in log10)", y = "cumulative probability")
-p12_1<- ggplot(dat, aes(logpg1_personalized, ..density..))+
-  geom_histogram(aes(color=verified,  group = verified),  bins =100, position = "stack")+
-  labs(x= "pagerank (in log10)")
-p13_1 <- ggplot(dat, aes(logpg1_personalized, color=verified, fill = verified ))+
-  geom_density(aes(  group = verified), alpha =0.1,   position = "stack")+
-  labs(x= "pagerank (in log10)")
-multiplot(p11_1, p12_1, p13_1,  cols = 2)
+p11_1 <- followers %>% ggplot(aes(x = log10(pg1_core3))) + stat_ecdf(geom="step",aes(group = verified, color = verified )) +  labs(x= "pagerank (in log10)", y = "cumulative probability") + ggtitle("pagerank1")
+
+p12_1 <- followers %>% ggplot(aes(x = log10(pg1_p_core3))) + stat_ecdf(geom="step",aes(group = verified, color = verified )) +  labs(x= "pagerank (in log10)", y = "cumulative probability") + ggtitle("pagerank1 personalized")
+multiplot(p11_1, p12_1,  cols = 2)
 ```
 
 
 **pagerank 2 (w/o personalization)**
 
 ```{r, echo =FALSE, warning=FALSE, fig.width=8, fig.height=6}
-p21 <- ggplot(dat, aes(logpg2)) + stat_ecdf(geom="step",aes(group = verified, color = verified )) + 
-  labs(x= "pagerank (in log10)", y = "cumulative probability")
-p22 <- ggplot(dat, aes(logpg2, ..density..))+
-  geom_histogram(aes(color=verified,  group = verified), bins =100, position = "stack")+
-  labs(x= "pagerank (in log10)")
-p23 <- ggplot(dat, aes(logpg2, color=verified, fill = verified ))+
-  geom_density(aes(  group = verified), alpha =0.1, position = "stack")+
-  labs(x= "pagerank (in log10)")
-
-multiplot(p21, p22, p23, cols = 2) 
+p21 <- followers %>% ggplot(aes(x = log10(pg2))) + stat_ecdf(geom="step",aes(group = verified, color = verified )) + labs(x= "pagerank (in log10)", y = "cumulative probability")+ ggtitle("pagerank2")
+p22 <- followers %>% ggplot(aes(x = log10(pg2_personalized))) + stat_ecdf(geom="step",aes(group = verified, color = verified )) +  labs(x= "pagerank (in log10)", y = "cumulative probability") + ggtitle("pagerank2 personalized")
+multiplot(p21, p22, cols = 2) 
 ```
 
 
-```{r, echo =FALSE, warning=FALSE, fig.width=8, fig.height=6}
-p21_1 <- ggplot(dat, aes(logpg2_personalized)) + stat_ecdf(geom="step",aes(group = verified, color = verified )) + 
-  labs(x= "pagerank (in log10)", y = "cumulative probability")
-p22_1 <- ggplot(dat, aes(logpg2_personalized, ..density..))+
-  geom_histogram(aes(color=verified,  group = verified), bins =100, position = "stack")+
-  labs(x= "pagerank (in log10)")
-p23_1 <- ggplot(dat, aes(logpg2_personalized, color=verified, fill = verified ))+
-  geom_density(aes(  group = verified), alpha =0.1, position = "stack")+
-  labs(x= "pagerank (in log10)")
-
-multiplot(p21_1, p22_1, p23_1, cols = 2) 
-```
 
 Next, the plots above indicates (espcially for pagerank1), verified account tend to have high scores. Bots tend to have lower scores, let's look at the followers with lowest 25% of the scores. 
 
 ```{r,  echo = FALSE, warning=FALSE, fig.width=8, fig.height=6}
 #68727 minimum values
-p31 <- subset(followers, pg1 < quantile(pg1,0.25, na.rm = T)) %>% group_by(period, clust_cat) %>% summarise(count = n()) %>% ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
+p31 <- followers %>% subset( pg1 <= (quantile(pg1, 0.05, na.rm = T)+1e-12)) %>% group_by(period, clust_cat) %>% summarise(count = n()) %>% ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
   geom_bar(stat = "identity" ) +
   geom_text(size = 3, position = position_stack(vjust = 0.5)) +
-  scale_fill_brewer(palette="Spectral")
-p32 <- subset(followers, pg2 < quantile(pg2,0.25, na.rm = T))%>% group_by(period, clust_cat) %>% summarise(count = n()) %>% ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
-  geom_bar(stat = "identity" ) +
-  geom_text(size = 3, position = position_stack(vjust = 0.5)) +
-  scale_fill_brewer(palette="Spectral")
-p33 <- subset(followers,followers_count < quantile(followers_count, 0.25, na.rm = T))%>% group_by(period, clust_cat) %>% summarise(count = n()) %>% ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
-  geom_bar(stat = "identity" ) +
-  geom_text(size = 3, position = position_stack(vjust = 0.5)) +
-  scale_fill_brewer(palette="Spectral")
+  scale_fill_brewer(palette="Spectral")+ggtitle("tail of pg1")
 
-p34 <- followers %>% mutate(followers_following = log10(followers_count+1)/log10(1+friends_count))%>%
-subset(followers_following < quantile(followers_following, 0.25, na.rm = T))%>% group_by(period, clust_cat) %>% summarise(count = n()) %>% ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
+p31_1 <- followers %>% subset(pg1_personalized <= quantile(pg1_personalized, 0.05, na.rm = T)+1e-12) %>% group_by(period, clust_cat) %>% summarise(count = n()) %>% ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
   geom_bar(stat = "identity" ) +
   geom_text(size = 3, position = position_stack(vjust = 0.5)) +
-  scale_fill_brewer(palette="Spectral")
+  scale_fill_brewer(palette="Spectral") +ggtitle(paste0("tail of pg1_personalized"))
+
+p32 <- subset(followers, pg2 <= quantile(pg2,0.05, na.rm = T)+1e-12)%>% group_by(period, clust_cat) %>% summarise(count = n()) %>% ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
+  geom_bar(stat = "identity" ) +
+  geom_text(size = 3, position = position_stack(vjust = 0.5)) +
+  scale_fill_brewer(palette="Spectral")+ggtitle("tail of pg2")
+
+p32_1 <- subset(followers, pg2_personalized <= quantile(pg2_personalized, 0.05, na.rm = T)+1e-12)%>% group_by(period, clust_cat) %>% summarise(count = n()) %>% ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
+  geom_bar(stat = "identity" ) +
+  geom_text(size = 3, position = position_stack(vjust = 0.5)) +
+  scale_fill_brewer(palette="Spectral")+ggtitle("tail of pg2_personalized")
+
+
+p33 <- subset(followers,followers_count <= quantile(followers_count, 0.05, na.rm = T)+1e-12)%>% group_by(period, clust_cat) %>% summarise(count = n()) %>% ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
+  geom_bar(stat = "identity" ) +
+  geom_text(size = 3, position = position_stack(vjust = 0.5)) +
+  scale_fill_brewer(palette="Spectral")+ggtitle("tail of followers_count")
+
+p34 <- followers %>% 
+  mutate(followers_following = log10((followers_count+1)/(1+friends_count)))%>%
+  subset(followers_following <= quantile(followers_following, 0.05, na.rm = T)+1e-12)%>% 
+  group_by(period, clust_cat) %>% summarise(count = n()) %>% 
+  ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
+  geom_bar(stat = "identity" ) +
+  geom_text(size = 3, position = position_stack(vjust = 0.5)) +
+  scale_fill_brewer(palette="Spectral")+ ggtitle("tail of followers_counts friends_counts ratio")
+
+p35 <- followers %>% 
+  subset(pg1_core3 <= quantile(pg1_core3, 0.05, na.rm = T)+1e-12)%>% 
+  group_by(period, clust_cat) %>% summarise(count = n()) %>% 
+  ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
+  geom_bar(stat = "identity" ) +
+  geom_text(size = 3, position = position_stack(vjust = 0.5)) +
+  scale_fill_brewer(palette="Spectral") + ggtitle("tail of pagerank_core3")
+
+p36 <- followers %>% 
+  subset(pg1_p_core3 <= quantile(pg1_p_core3, 0.05, na.rm = T)+1e-12)%>% 
+  group_by(period, clust_cat) %>% summarise(count = n()) %>% 
+  ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
+  geom_bar(stat = "identity" ) +
+  geom_text(size = 3, position = position_stack(vjust = 0.5)) +
+  scale_fill_brewer(palette="Spectral") + ggtitle("tail of pagerank_p_core3")
 ```
 
+**The tails part of pagerank1, pagerank2, etc **
 
 ```{r tail part of pg1, echo = FALSE, warning=FALSE, fig.width=8, fig.height=6}
-multiplot(p0, p31, cols = 1)
+multiplot(p0, p31, cols = 2)
+multiplot(p0, p31_1, cols = 2)
+
+multiplot(p0, p32, cols = 2)
+multiplot(p0, p32_1, cols = 2)
+
+multiplot(p0,p33, cols = 2)
+multiplot(p0,p34, cols = 2)
+multiplot(p0,p35, cols = 2)
+multiplot(p0,p36, cols = 2)
 ```
 
-**The tail part of pagerank1 **
 
+**PageRank Scores within each clusters**
 
-```{r tail part of pg2, echo = FALSE, warning=FALSE, fig.width=8, fig.height=6}
-multiplot(p0, p32, cols = 1)
-```
-
-**The tail part of pagerank2**
-
-```{r,  echo = FALSE, warning=FALSE, fig.width=8, fig.height=6}
-multiplot(p33,p34, cols = 1)
-```
-
-**Performance of using the tail part of followers_count, followers_count/friends_count**
-
-```{r,  echo = FALSE, warning=FALSE, fig.width=8, fig.height=6}
+```{r , echo = FALSE, warning=FALSE, fig.width=8, fig.height=6}
 followers  %>% ggplot(aes(log10(pg1))) +
   stat_ecdf(geom="step",aes(group= clust_cat, color= clust_cat )) + 
-  labs(y = "cumulative probability")
+  labs(y = "cumulative probability")+labs(title = "pagerank1")
+
+followers  %>% ggplot(aes(log10(pg1_core3))) +
+  stat_ecdf(geom="step",aes(group= clust_cat, color= clust_cat )) + 
+  labs(y = "cumulative probability")+labs(title = "pagerank1 on 3-core")
 
 followers  %>% ggplot(aes(log10(pg2))) +
   stat_ecdf(geom="step",aes(group= clust_cat, color= clust_cat )) + 
-  labs(y = "cumulative probability")
+  labs(y = "cumulative probability")+labs(title = "pagerank2")
 
 followers  %>% ggplot(aes(log10(pg1_personalized))) +
   stat_ecdf(geom="step",aes(group= clust_cat, color= clust_cat )) + 
-  labs(y = "cumulative probability")
+  labs(y = "cumulative probability")+labs(title = "pagerank1 personalized")
+
+followers  %>% ggplot(aes(log10(pg1_p_core3))) +
+  stat_ecdf(geom="step",aes(group= clust_cat, color= clust_cat )) + 
+  labs(y = "cumulative probability")+labs(title = "pagerank1 personalized on 3-core")
 
 followers  %>% ggplot(aes(log10(pg2_personalized))) +
   stat_ecdf(geom="step",aes(group= clust_cat, color= clust_cat )) + 
-  labs(y = "cumulative probability")
+  labs(y = "cumulative probability")+labs(title = "pagerank2 personalized")
 
 ```
 

@@ -1,4 +1,4 @@
-
+rm(list =ls())
 
 library(xlsx)
 segments_with_label <- read.xlsx('../results_following/Trump_followers_three_stages.xlsx', 
@@ -25,15 +25,15 @@ followers_final <- followers[,c(1:14,15,16,70,17:69)]
 
 
 #60955, 191811, 124959 
-write.csv(followers_final, file ="../results_following/followers_with_cluster_info.csv", row.names = F)
+#write.csv(followers_final, file ="../results_following/followers_with_cluster_info.csv", row.names = F)
 
 
 
 
 
 #####---################
-followers_final <- read.csv("../results_following/followers_with_cluster_info.csv", 
-                            colClasses = c("character"))
+# followers_final <- read.csv("../results_following/followers_with_cluster_info.csv", 
+#                             colClasses = c("character"))
 colnames(followers_final)
 for(i in 21: 70) {
   followers_final[,i] <- as.integer(followers_final[,i])
@@ -59,7 +59,7 @@ colnames(users_info)
 
 ##
 a<- match( 1:150, followers_info$cluster)
-clusters <- followers[a,]
+clusters <- followers_info[a,]
 cluster_info <- clusters[,c("cluster", "cluster_label")]
 cluster_info$cluster_size <- table(followers_info$cluster)[1:150]
 
@@ -117,7 +117,7 @@ clus_x_year.month <- as.matrix(clus_x_year.month )
 colnames(clus_x_year.month) <- paste0('Y-',label.year.month[ncol(Y):1])
 cluster_info <- data.frame(cluster_info, data.frame(clus_x_year.month))
 
-write.csv(cluster_info, file = paste0(ResultPath, "cluster_summary.csv"), row.names = F)
+#write.csv(cluster_info, file = paste0(ResultPath, "cluster_summary.csv"), row.names = F)
 
 
 #cluster x tweets  - > most frequent tweets
@@ -125,7 +125,7 @@ freqZ <- t(Z) %*% A1
 ids <- apply(freqZ, 1, function(x) order(-x)[1:10])
 ids <- as.vector(ids)
 freq_tweets <- data.frame(clusterid = rep(1:50, each =10),clust_size = rep(table(retweet_cluster), each =10), tweets[ids,])
-write.csv(freq_tweets, file =paste0(ResultPath,"most_freq_tweets.csv"), row.names = F)
+#write.csv(freq_tweets, file =paste0(ResultPath,"most_freq_tweets.csv"), row.names = F)
 
 
 
@@ -154,6 +154,9 @@ write.csv(cluster_info, file ="../results_following/result3/cluster_summary.csv"
 dim(users_info)
 
 rm(list = ls())
+
+
+
 source("function.R")
 ## followers_info, cluster_followers
 library(xlsx)
@@ -180,7 +183,9 @@ tweets_with_cluster$cluster_id <- as.integer(tweets_with_cluster$cluster_id)
 tweets_with_cluster$created_at <- as.POSIXct(tweets_with_cluster$created_at)
 
 #order the tweets, by the order in tweets  in graph k = 1,2, 3
-tweets_with_cluster <- tweets_with_cluster[match(tweets$id_str, tweets_with_cluster$id_str),]
+#due the updated version of retweet_A_comments, tweets is bigger
+idx_t <- match(tweets$id_str, tweets_with_cluster$id_str)
+tweets_with_cluster <- tweets_with_cluster[idx_t[!is.na(idx_t)],]
 ntopics <- max(tweets_with_cluster$cluster_id,na.rm = T); 
 tweets_with_cluster$cluster_id[!is.na(tweets_with_cluster$thank)] <- ntopics+1
 tweets_with_cluster$cluster_id[!is.na(tweets_with_cluster$join)] <- ntopics+2
@@ -210,7 +215,7 @@ topics_info <- data.frame(topics_info,topics_x_time)
 
 
 
-write.csv(topics_info, file = "../results_topics/unigram/cluster_names_k28_updated.csv", row.names = F)
+#write.csv(topics_info, file = "../results_topics/unigram/cluster_names_k28_updated.csv", row.names = F)
 
 
 
@@ -288,3 +293,6 @@ colnames(blockM) <- NULL; blockM
 write.csv(topics_info, file ="../results_retweeting/result3/topics_summary.csv", row.names = F)
 write.csv(cluster_info, file ="../results_following/result3/cluster_summary.csv", row.names = F)
 write.csv(followers_info, file ="../results_following/result3/followers_info.csv", row.names = F)
+
+
+

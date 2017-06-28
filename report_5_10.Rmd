@@ -1,0 +1,363 @@
+---
+title: "A Study of Donald Trump's Twitter Followers"
+author: Yini Zhang 
+date: May 11, 2017
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r include=FALSE, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(dygraphs)
+library(xts)
+
+```
+
+
+# Section I: The Growth of Trump's Twitter Followers 
+
+Data came from SMAD's Twitter archive collecting tweets through Twitter's streaming API. The archive contains 1% of random Twitter data. Data credit goes to J.
+
+The timeframe is from 2015/01/01 to 2016/11/09.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.width= 8, fig.height=6}
+
+#use created_at and rt.user.followers_count, remove rt.user.id that's not trump
+
+df_by_minute = read.csv("Trump followers/Trump_followers_minute_by_minute.csv", header = TRUE, colClasses = c("character", "numeric", "numeric"))
+df_by_minute$created_at = as.POSIXct(df_by_minute$created_at,format="%m/%d/%y %H:%M")
+df_by_minute_simp = df_by_minute %>% group_by(created_at) %>% summarise(followers = mean(rt.user.followers_count)) %>% mutate(date = as.Date(created_at))
+
+#by minute
+dt1 = xts(df_by_minute_simp$followers, order.by = df_by_minute_simp$created_at)
+dygraph(dt1,ylab="Volume", 
+        main="Trump's Twitter follower counts by minute") %>%
+  dyRangeSelector() %>% dyEvent("2015-6-16", "announced candidacy", labelLoc = "bottom") %>%
+  dyEvent("2016-7-19", "became the nominee", labelLoc = "bottom") %>%
+  dyEvent("2016-11-8", "won the election", labelLoc = "bottom")
+```
+
+**Figure 1: Trump's Twitter follower counts by minute**
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.width= 8, fig.height=6}
+#by day
+temp = df_by_minute_simp %>% group_by(date) %>% summarise(ave_followers = mean(followers))
+dt2 = xts(temp$ave_followers, order.by = temp$date)
+dygraph(dt2,ylab="Volume", 
+        main="Trump's Twitter follower counts by day") %>%
+  dyRangeSelector() %>% dyEvent("2015-6-16", "announced candidacy", labelLoc = "bottom") %>%
+  dyEvent("2016-7-19", "became the nominee", labelLoc = "bottom") %>%
+  dyEvent("2016-11-8", "won the election", labelLoc = "bottom")
+
+```
+
+**Figure 2: Trump's Twitter follower counts by day**
+
+
+
+# Section II: Decomposing Trump's Twitter followers
+
+Data comes from Song, who did an amazing job at harvesting data and creating and computing Trump followers' statistics.
+
+We divided the time into three periods: pre-announcement, primary, and general election. He sampled from Trump's first 13 million followers (until 11/08/2016) weighted by their follower sizes --  
+
+**124,959 followers from roughly his first 3 million (pre-announcement);** 
+
+**191,811 followers from his 3 tp 9.8 million followers (primary election);** 
+
+**60,955 from his 9.8 to 13 million followers (general election).** 
+
+
+For each set of followers, we cluserted them into 50 clusters **based on who follows who**, resulting in 150 clusters from all three periods. 
+
+Each cluster was interpreted based on the top 40 accounts people followed, people's region, language, and their follower and following counts.
+
+Notes on follower and following counts interpretations: 
+
+*influencers: number of followers greatly outweighs number of following
+
+*online marketers: number of followers is large and similar to number of following (bio: marketer, inspirational speaker, entreprenuer, etc.)
+
+*popular/followback accounts: number of followers is large and similar to number of following
+
+*popular grassroots: number of followers is large and a bit larger than number of following
+
+
+```{r include=FALSE}
+####read clusters
+df = read.csv("Trump_clusters_4_24.csv")
+unique(df$cluster_label)
+df = df %>% mutate(cluster_cat = ifelse( cluster_label == "South Africa" | cluster_label == "Nigeria" | cluster_label == "Venezuela" | cluster_label == "British" |cluster_label == "Australia" | cluster_label == "Kenya" | cluster_label == "Mongolia" | cluster_label == "Canada" | cluster_label == "France" | cluster_label == "mixed" | cluster_label == "Netherlands"| cluster_label == "India"| cluster_label == "Brazilian"| cluster_label == "Nepal"| cluster_label == "Denmark"| cluster_label == "AZ, Tokyo, Turkey"| cluster_label == "Russia"| cluster_label == "Mexico", "other countries", as.character(cluster_label)))
+#reorder period
+df$period = factor(df$period, levels = c("pre announcement", "primary election", "general election"))
+
+df$cluster_cat1[df$cluster_cat == "Trump supporters"] = "Trump supporters"
+df$cluster_cat1[df$cluster_cat == "conservatives"] = "conservatives"
+df$cluster_cat1[df$cluster_cat == "anti-feminist conservatives"] = "anti-feminist conservatives"
+df$cluster_cat1[df$cluster_cat == "religious"] = "conservatives"
+df$cluster_cat1[df$cluster_cat == "NRA members"] = "conservatives"
+df$cluster_cat1[df$cluster_cat == "news junkies"] = "news&regional"
+df$cluster_cat1[df$cluster_cat == "journalists"] = "news&regional"
+df$cluster_cat1[df$cluster_cat == "Miami"] = "news&regional"
+df$cluster_cat1[df$cluster_cat == "California tech scene"] = "news&regional"
+df$cluster_cat1[df$cluster_cat == "liberals"] = "liberals"
+df$cluster_cat1[df$cluster_cat == "far left"] = "liberals"
+df$cluster_cat1[df$cluster_cat == "non-political"] = "non-political"
+df$cluster_cat1[df$cluster_cat == "other countries"] = "other countries"
+df$cluster_cat1[df$cluster_cat == "international"] = "international"
+
+df$cluster_cat1 = factor(df$cluster_cat1, levels = c("Trump supporters", "anti-feminist conservatives", "conservatives", "liberals", "news&regional", "international", "non-political", "other countries"))
+
+```
+
+### 2.1 The composition of followers in each period
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.width= 8, fig.height=6}
+df %>% group_by(period, cluster_cat1) %>% summarise(count = n()) %>% ggplot(aes(x = period, y = count, fill = cluster_cat1, label = cluster_cat1)) +
+  geom_bar(stat = "identity") +
+  geom_text(size = 3, position = position_stack(vjust = 0.5)) +
+  scale_fill_brewer(palette="Spectral")
+```
+
+**Figure 3: Distribution of 150 clusters by cluster number in three periods**
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.width= 8, fig.height=6}
+df %>% group_by(period, cluster_cat1) %>% summarise(count = sum(clust_size)) %>% ggplot(aes(x = period, y = count, fill = cluster_cat1, label = cluster_cat1)) +
+  geom_bar(stat = "identity" ) +
+  geom_text(size = 3, position = position_stack(vjust = 0.5)) +
+  scale_fill_brewer(palette="Spectral")
+```
+
+**Figure 4.1: Distribution of of 150 clusters by cluster size in three periods**
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.width= 8, fig.height=6}
+df %>% group_by(period, cluster_cat1) %>% summarise(count = sum(clust_size)) %>% ggplot(aes(x = period, y = count, fill = cluster_cat1)) +
+  geom_bar(position = "fill", stat = "identity" ) +
+  scale_fill_brewer(palette="Spectral") 
+```
+
+**Figure 4.2: Distribution of of 150 clusters by percentage in three periods**
+
+
+
+### 2.2 Following time
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.width= 10, fig.height=6}
+df$time_order_150 = rank(df$time_order.million)
+
+df %>% ggplot(aes(x = time_order_150, y = clust_size, fill = cluster_cat1)) +
+  geom_bar(stat = "identity") +
+  scale_fill_brewer(palette="Spectral")
+```
+
+**Figure 5: Plot cluster categories against time by cluster size**
+
+
+```{r include=FALSE, warning=FALSE, message=FALSE}
+#######read followers
+# classes =  c("numeric", "character", "character", "character", "character", "factor", "character", "character", "character", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric")
+fg = read.csv("followers_info_general.csv", header = TRUE, sep = ",")
+fg$period = rep("general election", length(fg$id_str)) 
+fpri = read.csv("followers_info_primary.csv", header = TRUE, sep = ",")
+fpri$period = rep("primary election", length(fpri$id_str)) 
+fpre = read.csv("followers_info_pre.csv", header = TRUE, sep = ",")
+fpre$period = rep("pre announcement", length(fpre$id_str)) 
+fpre$id_str = as.character(fpre$id_str)
+fpri$id_str = as.character(fpri$id_str)
+fg$id_str = as.character(fg$id_str)
+
+f_all = rbind (fg %>% select(id_str, favourites_count:period), fpri %>% select(id_str, favourites_count:period), fpre %>% select(id_str, favourites_count:period))
+#people who don't have a cluster ID: 55264, an ID has to follow at least 10 people to be in the clustering
+sum(is.na(f_all$cluster))
+
+#merge with cluster information: by cluster id and period
+df_sub = df %>% select(period, cluster_id, cluster_label, label_note, cluster_cat1, time_order_150)
+colnames(f_all)[8] <- 'cluster_id'
+f_all$period = as.factor(f_all$period)
+f_all$period = factor(f_all$period, levels = c("pre announcement", "primary election", "general election"))
+f_final = left_join((f_all %>% filter(!is.na(cluster_id))), df_sub)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.width= 12, fig.height=6}
+f_final %>% ggplot(aes(x = factor(time_order_150), y = time_order, fill = cluster_cat1)) + geom_boxplot() + stat_summary(fun.y = mean, geom="point",colour="darkred", size=1) +
+  scale_fill_brewer(palette="Spectral") + theme(axis.text.x = element_text(angle = 30, hjust = 1))
+
+```
+**Figure 6: Distribution of time ids**
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.width= 10, fig.height=6}
+f_final %>% mutate(million = time_order%/%100000+1) %>% group_by(million, cluster_cat1) %>% summarise(count = n()) %>% ggplot(aes(x = factor(million), y = count, fill = cluster_cat1)) +
+  geom_bar(position = "fill", stat = "identity" ) +
+  scale_fill_brewer(palette="Spectral") + 
+  geom_vline(xintercept = 30) + geom_text(aes(30,0,label = "announced candidacy", vjust = 1)) +
+  geom_vline(xintercept = 98) + geom_text(aes(98,0,label = "became the nominee", vjust = 1))
+
+```
+
+**Figure 7: Composition of followers by 100k**
+
+
+### 2.3 Compare features of cluster size, time, follower/following/favourite/status/retweet counts
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.width= 8, fig.height=6}
+#boxplot for each cluster category's clustersize, retweet count, ratio 
+df %>% ggplot(aes(x = cluster_cat1, y = clust_size, fill = factor(period))) + geom_boxplot() + stat_summary(fun.y = mean, geom="point",colour="darkred",size=2,
+    position=position_dodge(width=0.75)) + theme(axis.text.x = element_text(angle = 50, hjust = 1))
+
+f_final %>% ggplot(aes(x = cluster_cat1, y = time_order, fill = factor(cluster_cat1))) + geom_boxplot() + stat_summary(fun.y = mean, geom="point",colour="darkred",size=2, position=position_dodge(width=0.75)) + theme(axis.text.x = element_text(angle = 50, hjust = 1), legend.position = "none")
+```
+
+**Figure 8: Compare cluster size and time order**
+
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.width= 12, fig.height=8}
+f_final %>% gather(`followers_count`, `friends_count`, `statuses_count`, `favourites_count`, key = "metric", value = "count") %>% ggplot(aes(x = cluster_cat1, y = log(count), fill = factor(cluster_cat1))) + geom_boxplot() + stat_summary(fun.y = mean, geom="point",colour="darkred",size=2, position=position_dodge(width=0.75)) + theme(axis.text.x = element_text(angle = 50, hjust = 1), legend.position = "none") + facet_wrap(~metric, nrow = 2)
+
+```
+
+**Figure 9: Compare follower/following/favourite/status counts**
+
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.width= 12, fig.height=8}
+
+f_final %>% ggplot(aes(x = cluster_cat1, y = retweet_trump, fill = factor(period))) + stat_summary(fun.y = mean, geom="point",colour="darkred",size=3, position=position_dodge(width=0.75)) + geom_boxplot() + theme(axis.text.x = element_text(angle = 50, hjust = 1)) + scale_fill_discrete(name = "Time period") + ylab("Each follower's retweeting times")
+
+f_final %>% group_by(cluster_cat1) %>% summarise(retweet_total = sum(retweet_trump, na.rm = TRUE), num_people = n()) %>% mutate(retweet_per_person = retweet_total/num_people) %>% ggplot(aes(x = cluster_cat1, y = retweet_per_person, fill = cluster_cat1)) + geom_bar(stat = "identity") + ylab("Average retweeting times") + theme(legend.position = "none")
+
+df %>% ggplot(aes(x = cluster_cat1, y = retweet.ratio)) + geom_boxplot() + theme(axis.text.x = element_text(angle = 50, hjust = 1)) + ylab("Percentage of followers who retweeted Trump")
+
+```
+
+**Figure 10: Comparing retweets by three measures**
+
+
+# Section III: Explore Retweet Patterns of the Clusters
+
+### 3.1 Retweet counts of each cluster category over time
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.width= 10, fig.height=6}
+temp = df %>% select(cluster_cat1, clust_size, Y.2015.01:Y.2016.11) %>% gather(`Y.2015.01`:`Y.2016.11`, key = month, value = tweet_count) %>% group_by(cluster_cat1, month) %>% summarise(ave_tweet_count_weighted_by_cluster_size = mean(tweet_count/clust_size)) %>% mutate(date = as.Date(paste(substr(month, 3,9), ".15", sep = ""), format = "%Y.%m.%d"))
+
+temp %>% ggplot(aes(x = date, y = ave_tweet_count_weighted_by_cluster_size, color = cluster_cat1)) + geom_line() + geom_point(size = 2)
+
+```
+**Figure 11 : Monthly retweet pattern of each cluster category**
+
+
+### 3.2 What were people retweeting in each cluster category?
+
+First, we used topic modeling to extract several themes of Trumps tweets. We found that his tweets ranged from criticisms and attacks to standard campaign rhetoric. Each of Trump's tweets was assigned a topic label.
+
+Then, we explored what kind of tweets each cluster category was retweeting. 
+
+What tweets was each cluster category retweeting from Trump?
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.width= 10, fig.height=6}
+followers_complete = read.csv("followers_with_cluster_info.csv")
+
+f1 = followers_complete %>% gather(`campaign.slogan`:`via_at`, key = "topic", value = "count") %>% group_by(cluster_label, topic) %>% summarise(per_follower_count = mean(count))
+
+f1$topic[f1$topic == "announce.media.presence.1"] = "announce.media.presence"
+f1$topic[f1$topic == "announce.media.presence.2"] = "announce.media.presence"
+f1$topic[f1$topic == "announce.media.presence.and.crticize.media"] = "announce.media.presence"
+f1$topic[f1$topic == "call.for.support"] = "call.for.support.vote"
+f1$topic[f1$topic == "call.for.vote"] = "call.for.support.vote"
+f1$topic[f1$topic == "call.for.vote.1"] = "call.for.support.vote"
+f1$topic[f1$topic == "campaign.slogan.1"] = "campaign.slogan"
+f1$topic[f1$topic == "campaign.slogan.2"] = "campaign.slogan"
+f1$topic[f1$topic == "criticize.opponents.1"] = "criticize.opponents"
+f1$topic[f1$topic == "criticize.opponents.2"] = "criticize.opponents"
+f1$topic[f1$topic == "criticize.opponents.3"] = "criticize.opponents"
+f1$topic[f1$topic == "praise.surrogates.1"] = "praise.surrogates"
+f1$topic[f1$topic == "thank_you"] = "express.appreciation"
+f1$topic[f1$topic == "express.appreciation.1"] = "express.appreciation"
+f1$topic[f1$topic == "via_at"] = "retweet_endorse"
+f1$topic[f1$topic == "cite.positive.news"] = "retweet_endorse"
+f1$topic[f1$topic == "campaign.stops.1"] = "campaign.stops"
+f1$topic[f1$topic == "campaign.stops"] = "campaign.tweets"
+f1$topic[f1$topic == "campaign.slogan"] = "campaign.tweets"
+f1$topic[f1$topic == "call.for.support.vote"] = "campaign.tweets"
+f1$topic[f1$topic == "express.appreciation"] = "campaign.tweets"
+f1$topic[f1$topic == "join_us"] = "campaign.tweets"
+f1$topic[f1$topic == "announce.media.presence"] = "campaign.tweets"
+
+
+
+f1 %>% ggplot(aes(x = cluster_label, y = per_follower_count, fill = topic)) + geom_bar(stat = "identity", position = "fill") + theme(axis.text.x = element_text(angle = 50, hjust = 1))
+
+```
+
+
+# Section IV: BOTS
+
+### How do we define bots?
+
+1) weekly count of tweets (results will be out soon)
+
+2) follower/following/favourite/status/retweet counts
+
+```{r echo=FALSE, echo=FALSE, message=FALSE, warning=FALSE, fig.width= 8, fig.height=6}
+f_final %>% filter(followers_count <= 100) %>% ggplot(aes(x = factor(followers_count), y = friends_count)) + geom_boxplot()
+f_final %>% filter(followers_count <= 100) %>% ggplot(aes(x = factor(followers_count), y = favourites_count)) + geom_boxplot()
+f_final %>% filter(followers_count <= 100) %>% ggplot(aes(x = factor(followers_count), y = statuses_count)) + geom_boxplot()
+f_final %>% filter(followers_count <= 100) %>% ggplot(aes(x = factor(followers_count), y = retweet_trump)) + geom_boxplot()
+```
+
+Experimenting with parameters: 
+
+following_follower = friends_count/followers_count
+
+bots: following_follower > 50, followers_count < 50
+
+```{r echo=FALSE, echo=FALSE, message=FALSE, warning=FALSE, fig.width= 8, fig.height=6}
+#by raw counts
+f_final %>% mutate (following_follower = friends_count/followers_count) %>% filter (following_follower > 50, followers_count < 50) %>% 
+  group_by(period, cluster_cat1) %>% summarise(count = n()) %>% ggplot(aes(x = period, y = count, fill = cluster_cat1, label = cluster_cat1)) +
+  geom_bar(stat = "identity") +
+  geom_text(size = 3, position = position_stack(vjust = 0.5)) +
+  scale_fill_brewer(palette="Spectral")
+
+#by percentage
+f_final %>% mutate (following_follower = friends_count/followers_count) %>% filter (following_follower > 50, followers_count < 50) %>% 
+  group_by(period, cluster_cat1) %>% summarise(count = n()) %>% ggplot(aes(x = period, y = count, fill = cluster_cat1, label = cluster_cat1)) +
+  geom_bar(position = "fill", stat = "identity" ) +
+  scale_fill_brewer(palette="Spectral") 
+
+
+```
+
+
+### Clustering Trump followers using follower/following/favourite/status/retweet counts
+
+```{r echo=FALSE, echo=FALSE, message=FALSE, warning=FALSE, fig.width= 8, fig.height=6}
+f_final$retweet_trump[is.na(f_final$retweet_trump)] = 0
+a = f_final %>% select (id_str, cluster_cat1, followers_count, friends_count, statuses_count, favourites_count, retweet_trump)
+
+wss <- (nrow(a)-1)*sum(apply(a[, -c(1, 2)],2,var))
+for (i in 2:9) wss[i] <- sum(kmeans(a[, -c(1, 2)], centers=i)$withinss)
+plot(1:9, wss, type="b", xlab="Number of Clusters",
+     ylab="Within groups sum of squares")
+```
+
+```{r}
+set.seed(7)
+K = 6
+km = kmeans(a[, -c(1, 2)], K, nstart = 10)
+table(km$cluster)
+```
+
+```{r echo=FALSE, echo=FALSE, message=FALSE, warning=FALSE, fig.width= 8, fig.height=6}
+kmd = as.data.frame(list(cluster = a$cluster_cat1, follower_count = a$followers_count, following_count = a$friends_count, fav_count = a$favourites_count, status_count = a$statuses_count, rt_count = a$retweet_trump, value = as.factor(km$cluster)))
+
+kmd %>% gather(`follower_count`: `rt_count`, key = "measure", value = "count") %>% group_by(value, measure) %>% summarise(log_mean = log(mean(count))) %>% ggplot(aes(x = factor(value), y = log_mean, fill = measure )) + geom_bar(stat = "identity") + scale_color_brewer(palette = "Set2")
+
+kmd %>% ggplot(aes(cluster, fill = factor(value))) + geom_bar(position = "fill")
+```
+
