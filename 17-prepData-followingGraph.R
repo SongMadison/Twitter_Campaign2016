@@ -177,7 +177,7 @@ sub_ids = followers$id_str
 adjlist_str <- adjlist_all[idx]
 sns <- sns[idx]
 
-adj_list <-  mclapply(adjlist_str, FUN =function(x) strsplit(x, split = ',') , mc.cores=5) 
+#adj_list <-  mclapply(adjlist_str, FUN =function(x) strsplit(x, split = ',') , mc.cores=5) 
 #encounter various problems
 #Error in sendMaster(try(lapply(X = S, FUN = FUN, ...), silent = TRUE)) : 
 #  long vectors not supported yet: fork.c:376

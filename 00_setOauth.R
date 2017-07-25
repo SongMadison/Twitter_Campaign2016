@@ -5,12 +5,16 @@
 # note: you can not run a loop since you need to stop every time to copy over the verification number
 #-----------------------------------------
 
-
+library(ROAuth)
 #credential <- read.csv("../data/twitter_credential.csv", stringsAsFactors =F)
 #save(credential, file = '../data/credential.RData')
 load('../data/credential.RData')
-library(ROAuth)
-k = 15
+# item <- c("8EjOyu2DgiQn4jo6Z26F9Y89S",
+#           "zRm0Wm2hFLF63giRTpT6gXKCbcp04YBkmFTiMS7tiY6mH1z9kA",
+#           "518543036-epqze9i4Fu3JTlGBtZnlMjMrkyVQaROJqPK6oxnf",
+#           "prGJO8QGaukOYtohnnvhLdtgJLFAjMHgaKaHFeoBoBRlO")
+credential <- rbind(credential, item)
+k = nrow(credential)
 #dir.create("./credentials/credential15")
 if(!file.exists(paste0("./credentials/credential",k,"/my_oauth") )){
   consumer_key <- credential$consumer_key[k]
@@ -45,15 +49,9 @@ save(my_oauth, file = paste0("./credentials/credential37/my_oauth",k))
 
 
 #library(smappR)
-getFollowers('swang282',oauth_folder = './credentials/credential37') #verify it works 
+smappR::getFollowers('swang282',oauth_folder = './credentials/credential37') #verify it works 
 
-files <- NULL
-files <- c(files, list.files("./credentials/credential_mixed/"))
-files <- c(files, list.files("./credentials/credential_mixed1/"))
-files <- c(files, list.files("./credentials/credential_mixed2/"))
-files <- c(files, list.files("./credentials/credential_mixed3/"))
-
-
+nn <- length(list.files("./credentials/all/"))
 cred <- matrix("", 80, 4)
 for(f in list.files("./credentials/all/")){
   load(paste0("./credentials/all/",f))
