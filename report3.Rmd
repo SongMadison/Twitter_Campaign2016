@@ -1,0 +1,65 @@
+---
+title: "Report on Social Structures of Trump's followers -3"
+author: "SongWang"
+date: "11/03/2016"
+output: html_document
+---
+
+### Summary of Results: 
+
+1. Some summary statistics on the bipartite graph:
+2. Run RSC on the bipartite graph, with 12 clusters -- uniform sample; 16 clusters for the non-uniform sample. 
+   + For each clusters, select the top20  friends/followers with most followers -- influence
+   + create the bloomplot, to show the how the strong the connection inside the community vs. across community.
+   + collect their text data to do an further explanations   
+
+
+
+### Procedures:
+1. determine the number of clusters
+2. Clustering row and columns individually
+3. Clusteirng row and columns together.
+
+
+### Results:
+1. Summary statistics:
++ A1 : 45512 x 213671, A2: 75938 x 372152
++ take A2 for example: max row.deg = 44681  max col.deg 29567
++ screen plots
++ degree distribution
+
+
+2. After clustering:
++ balloonplot
++ top 20 high degree nodes, their screen_names and followers counts
+
+
+
+### Feedbacks
+1. instead of using the highest-degree followers or friends, we can calculate the inner product of individual followers and friends that most aligned with their kmeans-center. That also takes into account the degree informaion as well.
+
+2. try to use the text data in the profile of that users when doing the interpretations of clusters
+
+3. When run k-means, try 1000 random initializations, so that the results become more stable.
+   + Try a different number of clusters, K= 7 for example.
+
+4. Analyze theoretically, the sampling schema effects on the learning of B -- probability matrix.
+
+
+
+
+### Future Problems:
+
+
+Can we develop any theory for this partial observed network. -- Connection to Tai's squared data. 
+These types of network is very common -- it is like the opposite of combining several egonetworks together. 
+
+We can learn just Trump's ego networks 12M x 12M. sure take a lot time to download. 120 weeks!
+
+now, we can either construct a 100K x 12M followers, or 100K x 5M friends out of all twitter users
+
+
+How to clustering bipartite graph? Give you H, can you do something about it. 
+Their followers and effects 
+
+

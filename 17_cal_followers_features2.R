@@ -12,13 +12,14 @@ library(xts)
 # add some new features.
 
 
-f1<- read.csv("../results_following/result1/followers_info_updated.csv", 
+
+f1<- read.csv("../results_following/result1/followers_info_upated.csv", 
               colClasses = c("character"))
 f1$cluster <- as.numeric(f1$cluster)+100 #after primary
-f2<- read.csv("../results_following/result2/followers_info_updated.csv", 
+f2<- read.csv("../results_following/result2/followers_info_upated.csv", 
               colClasses = c("character"))
 f2$cluster <- as.numeric(f2$cluster)+50 # before primary
-f3<- read.csv("../results_following/result3/followers_info_updated.csv", 
+f3<- read.csv("../results_following/result3/followers_info_upated.csv", 
               colClasses = c("character"))
 f3$cluster <- as.numeric(f3$cluster) #before announcement
 followers_info <- rbind(f3,f2,f1)
@@ -28,8 +29,6 @@ followers_info$created_at <- as.POSIXct(followers_info$created_at,
                                         format = "%a %b %d %H:%M:%S %z %Y")
 rm(f1,f2,f3)
 
-
-#update the labels
 
 
 #16, cluster, id
@@ -67,6 +66,7 @@ cat("two pageranks is done.")
 
 
 
+
 #clsuter_features: 5(period, cluster id, cluster_label, cluster_cat, clust_note
 # segments_with_label <- read.xlsx('../results_following/Trump_followers_three_stages.xlsx',
 #                                  colClasses = c("character"),
@@ -92,6 +92,27 @@ cluster_features <- cluster_features %>% left_join(segments_with_label,
 names(cluster_features) <- c("period", "cluster", "clust_label","clust_cat","clust_note")
 cluster_features <- cluster_features[,1:4] #remove note
                                                     
+
+# #clsuter_features: 5(period, cluster id, cluster_label, cluster_cat, cluster_note
+# segments_with_label <- read.xlsx('../results_following/Trump_followers_three_stages.xlsx',
+#                                  colClasses = c("character"),
+#                                  sheetIndex = 8)
+# category_names <- read.csv("../results_following/cluster_cat.csv", colClasses = c("character"))
+# cluster_features <- data.frame(
+#   period = rep(c("before announcement", "before primary", "before election"), 
+#                times = c(n3,n2, n1)), 
+#   cluster = followers_info$cluster
+# )
+# #add cluster_label, and category names #some duplicated labels give warnings
+# cluster_features$clust_label = factor(cluster_features$cluster, levels = 1:150,
+#                                       labels = segments_with_label$cluster_label)
+# cluster_features$clust_label <- as.character(cluster_features$clust_label)
+# cluster_features$clust_cat <- cluster_features$clust_label
+# for( i in 1:nrow(category_names)){
+#   cluster_features$clust_cat[which(cluster_features$clust_label == category_names$cluster_label[i])] <-
+#     category_names$cluster_cat1[i]
+# }                                                    
+
 cat("cluster_features is done. \n")
 
 
@@ -132,6 +153,7 @@ cat("tweeting frequency is done. \n")
 
 followers_info <- data.frame(cluster_features, profile, calculated_features, tweet_by_user, trump_topic_features)
 # 4+ 14 + 10 +4+ 50 
+
 #period, "cluster", "clust_label" , "clust_cat", clust_label #profile, 
 # [20] "time_order"                                 "friends_count_samp"                        
 # [21] "retweet_trump_count"                        "id_str.1"                                  

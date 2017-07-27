@@ -1,28 +1,36 @@
 ---
-title: "Analysis on Followers' Retweeting pattern on Twitter"
+title: "Analysis on Followers' Interaction with Trump on Twitter"
 author: "Song Wang"
-date: "Jun 8, 2017"
+date: "`r Sys.Date()`"
 output: html_document
 ---
 
 
 
-```{r, include=FALSE}
-load("../data/friends_info/edgelist_Feb27/RData/retweet_A_comments.RData")
-retweets = retws; rm(retws)
-library(dplyr)
-df <- data.frame(reply = !is.na(retweets$in_reply_to_status_id_str), 
-                 RT_comments = !is.na(retweets$quoted_status_id_str), 
-                 RT_only = !is.na(retweets$retweet_status_id_str))
+```{r,echo=FALSE ,eval=FALSE,include=FALSE}
+##16-retweet-network.R
+```
 
-counts = df %>% group_by(RT_comments,RT_only) %>% count()
-counts$n[1]
+
+```{r, include=FALSE}
+rm(list =ls())
+set.seed(100)
+source("Head_file.R")
+source("function.R")
+options(digits=3)
+includeComments = FALSE
+# load("./0102/result_Android.RData")
+# allTweets = FALSE
+
+load("./0102/result_lambda.RData")
+#load("./0102/result.RData")
+allTweets = TRUE
 ```
 ### Data description:  
 
-Out of 13M trump's followers by Nov 8, 2016, we sampled 377725 followers. Out of those followers, we can download the following information: 1) profile infomation, 2)their friend list (the accounts they are following) and 3) their 3200 most recent recent tweets on the timeline. Out those tweets, we extracted those are retweets to @realDonaldTrumpexcluded the tweets outside the time interval 2015-06-16 and 2016-11-08(included). 
+We sampled 100k out of 12M trump's followers As of October 10, 2016. Out of those followers, we can download the profile infomation and their friend list of about 76k followers and cannot access the others due to private setting or accounts closure.  Besides, we downloaded their tweets from their timeline and collected 1200 most recent tweets (due to time limit, we can collect up to 3200 in thoery).  Out those tweets, we extracted those are retweets/replies to @realDonaldTrump  excluded the tweets outside the time interval 2015-01-01 and 2016-11-08(included). 
 
-This Analysis is about replies/retweets from  Trump's followers to Trump's tweets. We have totally `r sum(A` retweets from Trump's `r nrow(users` followers to `r nrow(tweets` of Trump tweets. Out of those retweets, `r counts$n[1]` are pure retweet without comments while `r counts$n[2]` are retweets with comments.
+This Analysis is about replies/retweets from  Trump's followers to Trump's tweets. We have totally `r nrow(el)` replies/retweets from Trump's `r length(unique(el[,1]))` followers to `r length(unique(el[,2]))` of Trump tweets.  Due deletion or other problem, we can have full access to `r nrow(tweets)` of those tweets, have id of the tweets they interacted with. 
 
 
 ### Goals and Conclusions
@@ -38,7 +46,12 @@ This Analysis is about replies/retweets from  Trump's followers to Trump's tweet
 ## A: bipartie graph 
 dim(A);dim(tweets); dim(users)
 k = 10 
-
+#users is recently downloadable followers among 8671
+# tweets is  recently downloadable followers among 3741(2400) + tweets found in Hadoop(~930)
+users_A <- users[match(rownames(A), users$id_str), ]; tweets_A <- tweets[match(colnames(A), tweets$id_str),]
+sum(is.na(users_A)); sum(is.na(tweets_A))
+users_A$id_str <- user_ids; tweets_A$id_str<- tweets_ids
+#tweets over time
 dates  <- c("2015-07-01 00:00:00", "2015-10-01 00:00:00","2016-01-01 00:00:00", 
             "2016-02-01 00:00:00", "2016-03-01 00:00:00",
             "2016-04-01 00:00:00","2016-05-01 00:00:00","2016-06-01 00:00:00","2016-07-01 00:00:00",
@@ -61,7 +74,7 @@ frequency_time <- function(time_vec, dates){
 counts <-frequency_time(tweets$created_at, dates)
 p1 <- ggplot(data = data.frame(dates = gsub('(.*) .*', '\\1', x= dates),counts = counts),
        aes(x = dates, y = counts))+geom_bar(stat='identity')+
-      ggtitle(("Trump's tweets counts over time"))+
+  ggtitle(("Trump's tweets counts over time"))+
      theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 
@@ -80,12 +93,9 @@ classify <- function(x, intervals){
 intervals <- c(1,2,4,10,50,max(Dr))
 counts <- table(classify(Dr,  intervals)  )
 tweets.by.user <- data.frame(order = factor(1:length(intervals[-1])), count = as.vector(counts)); 
-
-tweets.by.user$order <- factor(tweets.by.user$order, levels = 1:length(counts), labels =   paste0('[',intervals[1:(length(intervals)-1)],',',intervals[2:length(intervals)], ')'))
-
+tweets.by.user$order <-factor(tweets.by.user$order, levels = 1:length(counts), labels =   paste0('[',intervals[1:(length(intervals)-1)],',',intervals[2:length(intervals)], ')'))
 p2 <- ggplot(tweets.by.user, aes(order, count, fill = order))+
   geom_bar(stat="identity") + labs(title = "number of replies/retweets by each followers", x = '', ylab = "Number")
-
 
 ## column degree very skewed, take log
 power <- table(Dc)
@@ -93,6 +103,69 @@ tmp <- data.frame(degree = log2(as.numeric(names(power))) , freq = as.vector(log
 coefs <- lm(freq~degree, data =tmp)$coef
 power_law.plot <- ggplot(data =tmp , aes(x=degree, y=freq))+geom_point()+
   geom_smooth(method = 'lm', colour = 'red', se= FALSE) + labs(title = paste0("a=",round(coefs[1],2),", b=",round(coefs[2],2)), x = "log2 degree", y = 'log2 freq')
+#power_law.pl
+
+k = 10
+Z <- membershipM(bip.result$row); Y <- membershipM(bip.result$col)
+blockM <- t(Z) %*% A %*% Y
+balloon.plot(blockM, xlabel  = paste0(1:k,' (',colSums(Y),")"), ylabel = paste0(1:k,' (',colSums(Z), ')')) +  labs( title = paste(sum(blockM), "retweets/replies between", sum(Z), "follower and", sum(Y), "tweets"), y = paste0("clusters for followers"), x= paste("clusters for tweets"))
+colnames(blockM) <- paste0(1:k,'-',colSums(Y)); rownames(blockM) <- paste0(1:k,'-',colSums(Z)) 
+blockM
+in_out_ration = diag(blockM)/(rowSums(blockM)-diag(blockM)); names(in_out_ration) <- NULL
+
+#partition tweets
+clustered_tweets_by_retweet <- NULL
+for ( i in 1:k){
+  data <- tweets_A[ bip.result$col == i, ]
+  clustered_tweets_by_retweet <- rbind(clustered_tweets_by_retweet, data.frame(cluster_id = rep(i, nrow(data)), data))
+}
+rownames(clustered_tweets_by_retweet) <- 1:nrow(clustered_tweets_by_retweet)
+clustered_tweets_by_retweet <- clustered_tweets_by_retweet[which(!is.na(clustered_tweets_by_retweet$created_at)), ]
+write.csv(clustered_tweets_by_retweet, file = "./0102/retweeting/clustered_tweets_by_retweet_retweeting.csv", row.names = F)
+
+selected_tweets <- NULL  # select some tweets close to center
+for ( i in 1:k){
+  score <- irlba_L$v[,1:k][bip.result$col == i,] %*% as.vector(km1$centers[i,])
+  tweets_i <- tweets_A[bip.result$col == i,]
+  score <- score * (!is.na(tweets_i$created_at))
+  data <- tweets_i[order(-score)[1:5],]
+  selected_tweets <- rbind(selected_tweets, data.frame(cluster_id = rep(i, nrow(data)), data))
+}
+names(selected_tweets)
+rownames(selected_tweets) <- NULL
+write.csv(selected_tweets, file = "./0102/retweeting/selected_tweets_retweeting.xls",  row.names = F)
+
+#twitter clusters distributed over time, total 3377
+counts_cluster <- matrix(0,  k ,length(dates))   #tweets in each clusters
+for( i in 1:k){
+  tw1 <- clustered_tweets_by_retweet[clustered_tweets_by_retweet$cluster_id == i, ]
+  counts_cluster[i,] <- frequency_time(tw1$created_at, dates)
+}
+## two plots below show that retweeting pattern heavily depends on time
+
+dat <- flattenMatrix(counts_cluster) ## by col
+names(dat) <- c("cluster","time", "count");
+dat$time <- as.factor(dat$time); 
+dat$time <- factor(dat$time, 1:length(dates), labels = gsub('(.*) .*', '\\1', x= dates)) 
+dat$cluster <- as.factor(dat$cluster)
+p4 <- qplot(x = time, y = count, data =dat, group = cluster, geom = 'line', colour = cluster)+facet_grid(cluster~.)+
+  ggtitle(paste("Trump's tweets frequency over time (",nrow(tweets),"0"))+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+p5 <- balloon.plot(counts_cluster, xlabel = gsub('(.*) .*', '\\1', x= dates),
+                   ylabel = )+ labs(title = " different clusters of  Trump's tweets (total 1034, found in retweeting)  \n creted during 2015-01-01 and 2016-11-08") 
+counts_cluster
+
+
+if (allTweets == TRUE){
+  labels_twitter_bip <- labels_twitter_bip <- c("Oct","earlyNov","Bef2016Oct+", "Bef2016","Mar+Apr","AugSep+","AprMay+", "MayJun+","JulAug+","July")
+  expected.ord1 <- c(4,5,7,8,10,9,6,3,1,2)
+}else{
+  labels_twitter_bip <- labels_twitter_bip <- c("July","Aug","MayJun", "May","MarApr","Bef2016","Sep", "unif_small","OctNov","Oct")
+expected.ord1 <- c(8,6,5,4,3,1,2,7,10,9 )
+}
+
 
 ```
 
@@ -145,6 +218,118 @@ tmp
 
 
 ```{r, echo = includeComments}
+## on topic modeling  #2694 words
+k =20
+U <- irlba_Llabda$u
+Z <- membershipM(km3$cluster)
+centers <-  Diagonal(k,colSums(Z)^(-1)) %*% t(Z) %*% At # centers in the original space
+terms <- colnames(At); mean_vec <- colMeans(At)
+pdf(paste0("./0102/combined/wordcloud_",k,".pdf"))
+for (i in 1:k){
+    diff = sqrt(centers[i,]) - sqrt(mean_vec)
+    pos_idx <- which(diff > 0)
+    wordcloud(words = terms[pos_idx], freq = diff[pos_idx], 
+              max.words =50,
+              rot.per = 0, random.order = F, scale = c(2,0.3))
+    title(paste0("cluster of size: ", km3$size[i]))
+}
+dev.off() 
+selected_words <- matrix("", 20, k)
+for ( i in 1:k){
+  diff = sqrt(centers[i,]) - sqrt(mean_vec)
+  selected_words[,i] = terms[order(-diff)[1:20]]
+  selected_words[1:10,]
+}
+clustered_tweets_by_combined <- NULL
+for( i in 1:k){
+    #i= 15
+    tweets_i <- tweets[which( km3$cluster == i),]
+    scores <- U[which(km3$cluster == i),1:k]  %*% matrix(km3$centers[i,])
+    clustered_tweets_by_combined <- rbind( clustered_tweets_by_combined, 
+                              data.frame(cluster_id = rep(i, nrow(tweets_i)),
+                                      tweets_i[order(-scores),])  )                         
+}
+write.csv(clustered_tweets_by_combined, 
+          file =paste0("./0102/combined/clustered_tweets_text_k",k,".csv"), row.names = F)
+
+selected_tweets <- NULL
+ for( i in 1:k){
+    tweets_i <- tweets[which(km3$cluster == i),]
+    scores <- U[which(km3$cluster == i),1:k]  %*% as.vector(km3$centers[i,])
+    tweets_i <- tweets_i[order(-scores)[1:5],]
+    selected_tweets<- rbind(selected_tweets, 
+                              data.frame(cluster_id = rep(i, nrow(tweets_i)),tweets_i)  )                 }
+rownames(selected_tweets) <- NULL
+#selected_tweets$text
+write.csv(selected_tweets, 
+           file =paste0("./0102/combined/selected_tweets_text_k",k,".csv"),                          row.names = F)
+
+# name the clusters
+#8 -- Goofy Elizabeth Warren Our Native American Senator ,"failing @nytimes"
+if(allTweets == TRUE){
+labels_twitter_text <-  1:k
+  
+  #c("voteTrump_primary", "elizabethWarren","debates",
+                         # "enjoyInterview","trump16_convention","#amerifirst_#imwithyou", 
+                         # "campaign_join","urgeVote", "crooked_drainswamp",
+                         # "law_police_condolence",
+                         # "trumprally_joinme",
+                         # "specialInterests","MAGA_#primary",
+                         # "riggedSystem_email","tedcruz_rep",
+                         # "nytime_cnn","urgeDonation",
+                         # "clintion_sanders_obama",
+                         # "job_border",
+                         # "poll_debate_@megyn",)
+expected.ord2 <- 1:k
+  #c(4,17,9,3,14,15,5,19,6,11,13,18,1,2,12,7,8,10,16,20)
+}else{
+  labels_twitter_text <-
+  c(
+  "hillary_emails_rigged",
+  "dishonest_media",
+  "obama_isis_warming" ,
+  "economy_jobs",
+  "sanders_sold_rigged",
+  "caimpaign_join",
+  "cnn_morningjoe_fox",
+  "citing_polls_news",
+  "cruz_kasich",
+  "MAGA_slogan",
+  "convention_ryan",
+  "wonPrimary_unfair",
+  "terrorism_islam",
+  "campaign_thankyou",
+  "mitt_romney",
+  "border_immigration",
+  "failingnytimes",
+  "specialInterests",
+  "beingInterviewed",
+  "elizabethWarren"
+  )
+expected.ord2 <- c(1,3,9,5,15,20,11,12,2,7,17,10,4,13,16,18,6,8,14,19)
+}
+
+
+
+
+## topics change over time 
+counts_time_text <- matrix(0, length(dates), k)   # number of tweets in each clusters
+for( i in 1:k){
+  tw1 <- clustered_tweets_by_combined[clustered_tweets_by_combined$cluster_id == i, ]
+  counts_time_text[,i] <- frequency_time(tw1$created_at, dates)
+}
+
+dat2 <- flattenMatrix(counts_time_text)
+names(dat2) <- c("time","cluster", "count");
+dat2$time <- as.factor(dat2$time); dat2$time <- factor(1:length(dates), labels = gsub('(.*) .*', '\\1', x= dates)); dat2$cluster <- as.factor(dat2$cluster)
+p6 <- qplot(x = time, y = count,data =dat2, geom = "line", group = cluster, colour = cluster)+facet_grid(cluster~.)+ ggtitle("Trump's tweets frequency over time (2419)")+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+p7 <- balloon.plot(t(counts_time_text)[expected.ord2,], 
+                   ylabel = paste0(labels_twitter_text[expected.ord2], '-',km3$size[expected.ord2]),
+                   xlabel = gsub('(.*) .*', '\\1', x= dates))+ labs(title = paste0("different types of Trump's tweets (total ", sum(counts_time_text)," ) \n during 2015-01-01 and 2016-11-08"))
+#p7
+
+# I did a bigram on the text, which has the advantages to taking into account the order and create more words for our use. also I double the importance of the hashtags.
 
 ```
 

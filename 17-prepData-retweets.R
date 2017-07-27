@@ -62,40 +62,14 @@ sum(!is.na(retweets$quoted_status_id_str)) #263176, quoted some others.
 #write.csv(trumptweets, file ="../data/friends_info/edgelist_Feb27/trumptweets_followers.csv", row.names = F)
 
 
-## retweet from RT only, from 2015-06-16 - 2016-11-08
-samp<- read.csv("../data/friends_info/edgelist_Feb27/all_samp_info.csv", colClasses = c("character"))
-idx1 <- match(retweets$user_id_str, samp$id_str)
-retws <- retweets[!is.na(idx1),]
-retws <- retws[!is.na(retws$retweet_status_id_str),]
-retws <- retws[retws$created_at <'2016-11-09 00:00:00',]
-retws <- retws[retws$retweet_status_created_at >'2015-06-16 00:00:00',]
-edgelist <- data.frame(from_user = retws$user_id_str, to_tweet = retws$retweet_status_id_str)
-user_ids <- unique(edgelist$from_user); user_ids <- samp$id_str[!is.na(match(samp$id_str,user_ids))]
-i_set <- match(edgelist$from_user, user_ids)
-
-tweets_ids <- unique(edgelist$to_tweet)
-idx <- match(tweets_ids, trumptweets$id_str); stopifnot(sum(is.na(idx)) == 0) # no missing tweets
-tweets_ids <-  trumptweets$id_str[!is.na(match(trumptweets$id_str, tweets_ids))] #re-order the tweets_ids
-j_set <- match(edgelist$to_tweet, tweets_ids)
-A <- sparseMatrix(i= i_set, j = j_set, x = rep(1,nrow(edgelist)) )
-rownames(A) <- user_ids; colnames(A) <- tweets_ids
-tweets <- trumptweets[match(tweets_ids,trumptweets$id_str),]
-users <- samp[match(user_ids, samp$id_str),]
-
-#save(A,users, tweets, retws, file =paste0(RDataPath,"retweet_A123.RData"))
-#retws, retweet happend time, retweet altitudes, some info on the edges
-
-
-
-
 #retweet with comments -- quoted_status + retweets
 samp<- read.csv("../data/friends_info/edgelist_Feb27/all_samp_info.csv", colClasses = c("character"))
 idx1 <- match(retweets$user_id_str, samp$id_str)
 retws0 <- retweets[!is.na(idx1),]
 
-RT_idx  = which((!is.na(retws0$retweet_status_id_str))*(retws0$created_at <'2016-11-09 00:00:00')*
-                  (retws0$retweet_status_created_at >'2015-06-16 00:00:00')==1)
-retws1 <- retws0[RT_idx,]
+RT_only_idx  = which((!is.na(retws0$retweet_status_id_str))*(retws0$created_at <'2016-11-09 00:00:00')*
+                       (retws0$retweet_status_created_at >'2015-06-16 00:00:00')==1)
+retws1 <- retws0[RT_only_idx,]
 edgelist1 <- data.frame(from_user = retws1$user_id_str, to_tweet = retws1$retweet_status_id_str)
 
 RT_comments_idx <- which((!is.na(retws0$quoted_status_id_str))*(retws0$created_at <'2016-11-09 00:00:00')*
@@ -124,13 +98,75 @@ users <- samp[match(user_ids, samp$id_str),]
 
 
 
+## retweet from RT only, from 2015-06-16 - 2016-11-08
+samp<- read.csv("../data/friends_info/edgelist_Feb27/all_samp_info.csv", colClasses = c("character"))
+idx1 <- match(retweets$user_id_str, samp$id_str); sum(is.na(idx1))
+retws <- retweets[!is.na(idx1),]
+retws <- retws[!is.na(retws$retweet_status_id_str),]
+retws <- retws[retws$created_at <'2016-11-09 00:00:00',]
+retws <- retws[retws$retweet_status_created_at >'2015-06-16 00:00:00',]
+
+edgelist <- data.frame(from_user = retws$user_id_str, to_tweet = retws$retweet_status_id_str)
+user_ids <- unique(edgelist$from_user); user_ids <- samp$id_str[!is.na(match(samp$id_str,user_ids))]
+i_set <- match(edgelist$from_user, user_ids)
+
+tweets_ids <- unique(edgelist$to_tweet)
+idx <- match(tweets_ids, trumptweets$id_str); stopifnot(sum(is.na(idx)) == 0) # no missing tweets
+tweets_ids <-  trumptweets$id_str[!is.na(match(trumptweets$id_str, tweets_ids))] #re-order the tweets_ids
+j_set <- match(edgelist$to_tweet, tweets_ids)
+
+A <- sparseMatrix(i= i_set, j = j_set, x = rep(1,nrow(edgelist)) )
+rownames(A) <- user_ids; colnames(A) <- tweets_ids
+tweets <- trumptweets[match(tweets_ids,trumptweets$id_str),]
+users <- samp[match(user_ids, samp$id_str),]
+
+#save(A,users, tweets, retws, file =paste0(RDataPath,"retweet_A123.RData"))
+#retws, retweet happend time, retweet altitudes, some info on the edges
+
+
+
+
+#retweeting network based on quoted tweets 2015-06-16 - 2016-11-08
+samp<- read.csv("../data/friends_info/edgelist_Feb27/all_samp_info.csv", colClasses = c("character"))
+idx1 <- match(retweets$user_id_str, samp$id_str)
+retws0 <- retweets[!is.na(idx1),]
+
+RT_comments_idx <- which((!is.na(retws0$quoted_status_id_str))*(retws0$created_at <'2016-11-09 00:00:00')*
+                           (retws0$quoted_status_created_at >'2015-06-16 00:00:00')==1)
+retws2 <- retws0[RT_comments_idx,]
+edgelist2 <- data.frame(from_user = retws2$user_id_str, to_tweet = retws2$quoted_status_id_str)
+
+#edgelist <- rbind(edgelist1, edgelist2) #847706
+edgelist = edgelist2
+edgelist <- subset(edgelist, to_tweet %in% trumptweets$id_str ) #846841
+
+user_ids <- unique(edgelist$from_user); 
+user_ids <- samp$id_str[!is.na(match(samp$id_str,user_ids))] #order
+i_set <- match(edgelist$from_user, user_ids)
+
+tweets_ids <- unique(edgelist$to_tweet)
+idx <- match(tweets_ids, trumptweets$id_str); stopifnot(sum(is.na(idx)) == 0) # no missing tweets
+tweets_ids <-  trumptweets$id_str[!is.na(match(trumptweets$id_str, tweets_ids))] #re-order the tweets_ids
+j_set <- match(edgelist$to_tweet, tweets_ids)
+
+A <- sparseMatrix(i= i_set, j = j_set, x = rep(1,nrow(edgelist)) )
+rownames(A) <- user_ids; colnames(A) <- tweets_ids
+tweets <- trumptweets[match(tweets_ids,trumptweets$id_str),]
+#retws = rbind(retws1, retws2)
+retws = retws2
+users <- samp[match(user_ids, samp$id_str),]
+#save(A,users, tweets, retws,  file =paste0(RDataPath,"retweet_A_quoted-only.RData"))
+
+
+
+
+
+
 
 
 
 #three sub networks  -- PURE RT
 #before announcement, before primary, before election.
-
-
 
 samp<- read.csv("../data/friends_info/edgelist_Feb27/samp1_info.csv", colClasses = c("character"))
 idx1 <- match(retweets$user_id_str, samp$id_str)

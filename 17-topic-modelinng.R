@@ -48,7 +48,7 @@ tws$"thank" <- rep(NA, nrow(tws)); tws$"thank"[idx2] <- 1
 tws$"join" <- rep(NA, nrow(tws)); tws$"join"[idx3] <- 1
 tws$"via_at" <- rep(NA, nrow(tws)); tws$"via_at"[idx4] <- 1
 tws$url<- text_source
-tweets <- tws[-idxes,] #4879
+tweets <- tws[-idxes,] #4879 --> increased to 4824
 
 
 ### ------------------------------------- after extracting http, removing ^thank etc --------------

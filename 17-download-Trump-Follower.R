@@ -297,7 +297,7 @@ stopCluster(cl)
 Sys.time()
 #error we have, try catch will continue. 
 #{"request":"\/1.1\/statuses\/user_timeline.json","error":"Not authorized."}  -- privacy
-#{"errors":[{"code":34,"message":"Sorry, that page does not exist."}]}  -- pate not exist
+#{"errors":[{"code":34,"message":"Sorry, that page does not exist."}]}  -- pate not exisg
 
 
 

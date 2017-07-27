@@ -15,12 +15,15 @@ library(tidyverse) #include ggplot2, dyplyr, readr, tydyr
 library(xts)
 library(Matrix)
 library(data.table)
+
 theme_update(plot.title = element_text(hjust = 0.5))
 source("function.R")
 ```
 
 
+
 ```{r process data, include=FALSE, eval=FALSE}
+
 followers <- data.table::fread("../results_following/followers_with_cluster_info.csv", colClasses = c("character"))
 followers <- data.frame(followers)
 
@@ -114,6 +117,7 @@ knitr::include_graphics("../Poster_Jun2017/network_data.png")
 
 1. Partition the followers into 3 stages based on when they start to follow Trump. This has the following benefits: Twitter users in different stages are quite different. There are many new users in the third stage. Compared with old users, they tend to have fewer followers, friends, tweets etc. 2, dynamic of the users composition.
 
+
 2. For each stage, applying spectral clustering to the graph between Trump followers and accounts they are following (key step)
 
 > **Clustering algorithm**:
@@ -138,6 +142,7 @@ use the clusters to answer questions:
     + detecting bots  
 
 
+
 ```{r loading data}
 #load("../report/2017-05-27/report_0601.RData")
 load("../report/2017-05-27/report_0626.RData")
@@ -152,15 +157,75 @@ followers %>% mutate(is_NA = is.na(pg2) ) %>% group_by(period, is_NA) %>%summari
 
 ## PART 1: Addressing the missing value and line plots of new Trump supporters
 
-```{r}
-followers %>% mutate(million = time_order%/%100000+1) %>% group_by(million, clust_cat) %>% summarise(count = n()) %>% ggplot(aes(x = factor(million), y = count, fill = clust_cat)) +
-  geom_bar(position = "fill", stat = "identity" ) +
-  scale_fill_brewer (palette="Spectral") + 
-  geom_vline(xintercept = 30) + geom_text(aes(30,0,label = "announced candidacy", vjust = 1)) +
-  geom_vline(xintercept = 98) + geom_text(aes(98,0,label = "became the nominee", vjust = 1)) +
-  theme(axis.text.x=element_blank()) + xlab("Every 100k chunk") + ylab("Percentage")
 
-followers <- followers %>% subset(!is.na(cluster))
+
+Next, the plots above indicates (espcially for pagerank1), verified account tend to have high scores. Bots tend to have lower scores, let's look at the followers with lowest **5%** of the scores (```X <= quantile(X, 0.05, na.rm = T)+1e-10)```). 
+```{r}
+#68727 taking minimum values, using 1e-10 breaking 
+p31 <- followers %>% subset( pg1 <= (quantile(pg1, 0.05, na.rm = T)+1e-10)) %>% group_by(period, clust_cat) %>% summarise(count = n()) %>% ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
+  geom_bar(stat = "identity" ) +
+  geom_text(size = 3, position = position_stack(vjust = 0.5)) +
+  scale_fill_brewer(palette="Spectral")+ggtitle("tail of pg1")
+
+
+p31_1 <- followers %>% subset(pg1_personalized <= quantile(pg1_personalized, 0.05, na.rm = T)+1e-10) %>% group_by(period, clust_cat) %>% summarise(count = n()) %>% ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
+  geom_bar(stat = "identity" ) +
+  geom_text(size = 3, position = position_stack(vjust = 0.5)) +
+  scale_fill_brewer(palette="Spectral") +ggtitle(paste0("tail of pg1_personalized"))
+
+
+p32 <- subset(followers, pg2 <= quantile(pg2, 0.05, na.rm = T)+1e-10)%>% group_by(period, clust_cat) %>% summarise(count = n()) %>% ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
+  geom_bar(stat = "identity" ) +
+  geom_text(size = 3, position = position_stack(vjust = 0.5)) +
+  scale_fill_brewer(palette="Spectral")+ggtitle("tail of pg2")
+
+
+p32_1 <- subset(followers, pg2_personalized <= quantile(pg2_personalized, 0.05, na.rm = T)+1e-10)%>% group_by(period, clust_cat) %>% summarise(count = n()) %>% ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
+  geom_bar(stat = "identity" ) +
+  geom_text(size = 3, position = position_stack(vjust = 0.5)) +
+  scale_fill_brewer(palette="Spectral")+ggtitle("tail of pg2_personalized")
+
+
+p33 <- followers %>% 
+  subset(pg1_core3 <= quantile(pg1_core3, 0.05, na.rm = T)+1e-10)%>% 
+  group_by(period, clust_cat) %>% summarise(count = n()) %>% 
+  ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
+  geom_bar(stat = "identity" ) +
+  geom_text(size = 3, position = position_stack(vjust = 0.5)) +
+  scale_fill_brewer(palette="Spectral") + ggtitle("tail of pagerank_core3")
+
+p33_1 <- followers %>% 
+  subset(pg1_p_core3 <= quantile(pg1_p_core3, 0.05, na.rm = T)+1e-10)%>% 
+  group_by(period, clust_cat) %>% summarise(count = n()) %>% 
+  ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
+  geom_bar(stat = "identity" ) +
+  geom_text(size = 3, position = position_stack(vjust = 0.5)) +
+  scale_fill_brewer(palette="Spectral") + ggtitle("tail of pagerank_p_core3")
+
+
+p34 <- subset(followers,followers_count <= quantile(followers_count, 0.05, na.rm = T)+1e-10)%>% group_by(period, clust_cat) %>% summarise(count = n()) %>% ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
+  geom_bar(stat = "identity" ) +
+  geom_text(size = 3, position = position_stack(vjust = 0.5)) +
+  scale_fill_brewer(palette="Spectral")+ggtitle("tail of followers_count")
+
+p35 <- followers %>% 
+  mutate(followers_following = log10((followers_count+1)/(1+friends_count)))%>%
+  subset(followers_following <= quantile(followers_following, 0.05, na.rm = T)+1e-10)%>% 
+  group_by(period, clust_cat) %>% summarise(count = n()) %>% 
+  ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
+  geom_bar(stat = "identity" ) +
+  geom_text(size = 3, position = position_stack(vjust = 0.5)) +
+  scale_fill_brewer(palette="Spectral")+ ggtitle("tail of followers_counts friends_counts ratio")
+
+p36 <- followers %>% 
+    mutate(retweet_total = RT_only+ RT_comments)%>%
+    subset(retweet_total >= quantile(retweet_total, 0.95, na.rm = T)+1e-10)%>% 
+  group_by(period, clust_cat) %>% summarise(count = n()) %>% 
+  ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
+  geom_bar(stat = "identity" ) +
+  geom_text(size = 3, position = position_stack(vjust = 0.5)) +
+  scale_fill_brewer(palette="Spectral")+ ggtitle("Right tail of retweet count total")
+
 ```
 
 This is likely due to the downloading artifact. I download the friends followers on Mar 15, finished on Mar 19, trump00-trump06.json. ~ 6386161 out of 12877541 -- corresponding to 133012 out of 377725 (377811)

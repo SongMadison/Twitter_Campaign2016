@@ -65,10 +65,6 @@ dev.off()
 
 
 
-library(tidyverse) #include ggplot2, dyplyr, readr, tydyr
-library(dygraphs) # dynamic graph
-library(xts)
-
 #represented deplorables
 followers_info <- read.csv("../results_following/followers_with_cluster_info.csv")
 cluster_info <- read.csv("../combined_data/cluster_summary.csv")
