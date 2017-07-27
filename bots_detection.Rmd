@@ -1,0 +1,306 @@
+---
+title: "Bots Detection"
+#author: "Song Wang"
+date: "6/27/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.width=12, fig.height=8, fig.path='Figs/',
+                      echo=FALSE, warning=FALSE, message=FALSE)
+
+library(tidyverse) #include ggplot2, dyplyr, readr, tydyr
+#library(dygraphs) # dynamic graph
+library(xts)
+library(Matrix)
+theme_update(plot.title = element_text(hjust = 0.5))
+source("function.R")
+```
+
+```{r loading data}
+#load("../report/2017-05-27/report_0601.RData")
+load("../report/2017-05-27/report_0626.RData")
+followers <- subset(followers, !is.na(cluster))
+# followers$clust_cat <- addNA(followers$clust_cat)
+# levels(followers$clust_cat)[9] <- "NA"
+table(followers$clust_cat)
+table(followers$period)
+```
+
+
+## Part I: Using Pagerank to detect bots.
+PageRank was developed to evaluate the importance of web-pages via the link structures. More generally, it can used as a centrality measures of nodes in various networks. 
+
+Here we hypothsize that bots have fewer followers and thus lower pagerank scores. A benefits that pagerank has is that it is difficult for bots to adjust themselves to change the scores. 
+
+We calculate the pagerank scores of each Trump followers, use the verified account as non-bots accounts to see whether there is differences for this scores.
+
+Two pagerank scores presented here
+
+1.Pagerank1 from the network among **377725** followers themseleves.
+
+* Network statistics: 377725 nodes, 20766474 edges, mean degree = 54.98.
+   **65.8%** have zero out degree(following nobody); **18.2%** have zero in degree; **12.6%** have zero degrees
+
+* Page rank actually don't work well!  -- not able to ditinguish verified account and regular accounts
+
+2. Pagerank2 from the symmetrized bipartite graph between followers and people they are following (>=10).
+
+* Network statistics: (considered as bipartite graph) 324933 x 9118691, total edges: 525,894,470.
+5080581 out 9,118,691 have at least 10 followers in each stage. 9,118,691 have 10 followers among all the sample of 377725(324933).
+
+* no zero degrees. 1190/324933/377725 having <10 friends (out degree); min in degree is 10
+
+* Page rank has more very low scores (1e-7 (~12%, ~2%), 1e-6.5 (37%, 15%)). See the plot below.
+
+
+
+
+```{r}
+p0 <- followers %>% group_by(period, clust_cat) %>% summarise(count = n()) %>% 
+  ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
+  geom_bar(stat = "identity" ) +
+  geom_text(size = 3, position = position_stack(vjust = 0.5)) +
+  scale_fill_brewer(palette="Spectral") +xlab("")+ggtitle("full data")
+```
+
+
+### Two pageranks
+
+
+**pagerank 1 (w/o personalization)**
+
+```{r}
+p11 <- followers %>% ggplot(aes(x = log10(pg1))) + stat_ecdf(geom="step", aes(group = verified, color = verified )) +labs(x= "pagerank (in log10)", y = "cumulative probability") + ggtitle("pagerank1")
+
+p12 <- followers %>% ggplot(aes(x = log10(pg1_personalized))) + stat_ecdf(geom="step",aes(group = verified, color = verified )) +  labs(x= "pagerank (in log10)", y = "cumulative probability") + ggtitle("pagerank1 personalized")
+
+multiplot(p11, p12,  cols = 2)
+
+# p12 <- ggplot(dat, aes(logpg1, ..density..))+
+#   geom_histogram(aes(color=verified,  group = verified),  bins =100, position = "stack")+
+#   labs(x= "pagerank (in log10)")
+# p13 <- ggplot(dat, aes(logpg1, color=verified, fill = verified ))+
+#   geom_density(aes(  group = verified), alpha =0.1,   position = "stack")+ labs(x= "pagerank (in log10)")
+# multiplot(p11, p12, p13,  cols = 2)
+```
+
+
+```{r}
+p11_1 <- followers %>% ggplot(aes(x = log10(pg1_core3))) + stat_ecdf(geom="step",aes(group = verified, color = verified )) +  labs(x= "pagerank (in log10)", y = "cumulative probability") + ggtitle("pagerank1 on 3-core")
+
+p12_1 <- followers %>% ggplot(aes(x = log10(pg1_p_core3))) + stat_ecdf(geom="step",aes(group = verified, color = verified )) +  labs(x= "pagerank (in log10)", y = "cumulative probability") + ggtitle("pagerank1 personalized on 3-core")
+multiplot(p11_1, p12_1,  cols = 2)
+```
+
+**pagerank 2 (w/o personalization)**
+
+
+```{r}
+p21 <- followers %>% ggplot(aes(x = log10(pg2))) + stat_ecdf(geom="step",aes(group = verified, color = verified )) + labs(x= "pagerank (in log10)", y = "cumulative probability")+ ggtitle("pagerank2")
+
+p22 <- followers %>% ggplot(aes(x = log10(pg2_personalized))) + stat_ecdf(geom="step",aes(group = verified, color = verified )) +  labs(x= "pagerank (in log10)", y = "cumulative probability") + ggtitle("pagerank2 personalized")
+multiplot(p21, p22, cols = 2) 
+```
+
+
+
+
+Next, the plots above indicates (espcially for pagerank1), verified account tend to have high scores. Bots tend to have lower scores, let's look at the followers with lowest **5%** of the scores (```X <= quantile(X, 0.05, na.rm = T)+1e-10)```). 
+```{r}
+#68727 taking minimum values, using 1e-10 breaking 
+p31 <- followers %>% subset( pg1 <= (quantile(pg1, 0.05, na.rm = T)+1e-10)) %>% group_by(period, clust_cat) %>% summarise(count = n()) %>% ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
+  geom_bar(stat = "identity" ) +
+  geom_text(size = 3, position = position_stack(vjust = 0.5)) +
+  scale_fill_brewer(palette="Spectral")+ggtitle("tail of pg1")
+
+
+p31_1 <- followers %>% subset(pg1_personalized <= quantile(pg1_personalized, 0.05, na.rm = T)+1e-10) %>% group_by(period, clust_cat) %>% summarise(count = n()) %>% ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
+  geom_bar(stat = "identity" ) +
+  geom_text(size = 3, position = position_stack(vjust = 0.5)) +
+  scale_fill_brewer(palette="Spectral") +ggtitle(paste0("tail of pg1_personalized"))
+
+
+p32 <- subset(followers, pg2 <= quantile(pg2, 0.05, na.rm = T)+1e-10)%>% group_by(period, clust_cat) %>% summarise(count = n()) %>% ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
+  geom_bar(stat = "identity" ) +
+  geom_text(size = 3, position = position_stack(vjust = 0.5)) +
+  scale_fill_brewer(palette="Spectral")+ggtitle("tail of pg2")
+
+
+p32_1 <- subset(followers, pg2_personalized <= quantile(pg2_personalized, 0.05, na.rm = T)+1e-10)%>% group_by(period, clust_cat) %>% summarise(count = n()) %>% ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
+  geom_bar(stat = "identity" ) +
+  geom_text(size = 3, position = position_stack(vjust = 0.5)) +
+  scale_fill_brewer(palette="Spectral")+ggtitle("tail of pg2_personalized")
+
+
+p33 <- followers %>% 
+  subset(pg1_core3 <= quantile(pg1_core3, 0.05, na.rm = T)+1e-10)%>% 
+  group_by(period, clust_cat) %>% summarise(count = n()) %>% 
+  ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
+  geom_bar(stat = "identity" ) +
+  geom_text(size = 3, position = position_stack(vjust = 0.5)) +
+  scale_fill_brewer(palette="Spectral") + ggtitle("tail of pagerank_core3")
+
+p33_1 <- followers %>% 
+  subset(pg1_p_core3 <= quantile(pg1_p_core3, 0.05, na.rm = T)+1e-10)%>% 
+  group_by(period, clust_cat) %>% summarise(count = n()) %>% 
+  ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
+  geom_bar(stat = "identity" ) +
+  geom_text(size = 3, position = position_stack(vjust = 0.5)) +
+  scale_fill_brewer(palette="Spectral") + ggtitle("tail of pagerank_p_core3")
+
+
+p34 <- subset(followers,followers_count <= quantile(followers_count, 0.05, na.rm = T)+1e-10)%>% group_by(period, clust_cat) %>% summarise(count = n()) %>% ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
+  geom_bar(stat = "identity" ) +
+  geom_text(size = 3, position = position_stack(vjust = 0.5)) +
+  scale_fill_brewer(palette="Spectral")+ggtitle("tail of followers_count")
+
+p35 <- followers %>% 
+  mutate(followers_following = log10((followers_count+1)/(1+friends_count)))%>%
+  subset(followers_following <= quantile(followers_following, 0.05, na.rm = T)+1e-10)%>% 
+  group_by(period, clust_cat) %>% summarise(count = n()) %>% 
+  ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
+  geom_bar(stat = "identity" ) +
+  geom_text(size = 3, position = position_stack(vjust = 0.5)) +
+  scale_fill_brewer(palette="Spectral")+ ggtitle("tail of followers_counts friends_counts ratio")
+
+p36 <- followers %>% 
+    mutate(retweet_total = RT_only+ RT_comments)%>%
+    subset(retweet_total >= quantile(retweet_total, 0.95, na.rm = T)+1e-10)%>% 
+  group_by(period, clust_cat) %>% summarise(count = n()) %>% 
+  ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
+  geom_bar(stat = "identity" ) +
+  geom_text(size = 3, position = position_stack(vjust = 0.5)) +
+  scale_fill_brewer(palette="Spectral")+ ggtitle("Right tail of retweet count total")
+
+```
+
+**The tails part of pagerank1, pagerank2, etc **
+
+
+```{r tail part of PageRanks}
+
+# pdf("tail_bots.pdf", onefile = TRUE)
+
+multiplot(p0, p31, cols = 2)
+
+multiplot(p0, p31_1, cols = 2)
+
+multiplot(p0, p32, cols = 2)
+
+multiplot(p0, p32_1, cols = 2)
+
+multiplot(p0, p33, cols = 2)
+
+multiplot(p0, p33_1, cols = 2)
+
+multiplot(p0, p34, cols = 2)
+
+multiplot(p0, p35, cols = 2)
+
+multiplot(p0, p36, cols = 2)
+
+#dev.off()
+```
+
+```{r}
+cor_mat <- cor(followers[,c("followers_count", "friends_count", "count_mean_timeline",'pg1', 'pg1_personalized','pg2', 'pg2_personalized','pg1_core3', "pg1_p_core3")], use = 'pairwise.complete.obs')
+cor_mat[row(cor_mat)<col(cor_mat)] <- 0
+balloon.plot(round(as.matrix(cor_mat),3), text = T, xlabel = colnames(cor_mat), ylabel = rownames(cor_mat))+ggtitle("Correlation among various criteria")
+
+```
+Findings: 
+
+1. Various PageRanks are strongly correlated with each other. And it is correlated with followers count or friends count. 
+
+2. While daily_tweets frequency is not so much correlated with other critieria.
+
+3. pg1, pg1_personalized etc. are similary. PageRanks is a kind of centrality measure.
+
+
+
+**PageRank Scores within each clusters**
+
+
+```{r}
+followers  %>% ggplot(aes(log10(pg1))) +
+  stat_ecdf(geom="step",aes(group= clust_cat, color= clust_cat )) + 
+  facet_grid(.~period) +
+  labs(y = "cumulative probability")+labs(title = "pagerank1")
+
+followers  %>% ggplot(aes(log10(pg1_core3))) +
+  stat_ecdf(geom="step",aes(group= clust_cat, color= clust_cat)) + 
+  facet_grid(.~period) +
+  labs(y = "cumulative probability")+labs(title = "pagerank1 on 3-core")
+
+followers  %>% ggplot(aes(log10(pg2))) +
+  stat_ecdf(geom="step",aes(group= clust_cat, color= clust_cat )) + 
+    facet_grid(.~period) +
+  labs(y = "cumulative probability")+labs(title = "pagerank2")
+
+followers  %>% ggplot(aes(log10(pg1_personalized))) +
+  stat_ecdf(geom="step",aes(group= clust_cat, color= clust_cat )) + 
+  facet_grid(.~period) +
+  labs(y = "cumulative probability")+labs(title = "pagerank1 personalized")
+
+followers  %>% ggplot(aes(log10(pg1_p_core3))) +
+  stat_ecdf(geom="step",aes(group= clust_cat, color= clust_cat )) + 
+  facet_grid(.~period) +    
+  labs(y = "cumulative probability")+labs(title = "pagerank1 personalized on 3-core")
+
+followers  %>% ggplot(aes(log10(pg2_personalized))) +
+  stat_ecdf(geom="step",aes(group= clust_cat, color= clust_cat )) + 
+  facet_grid(.~period) +
+  labs(y = "cumulative probability")+labs(title = "pagerank2 personalized")
+
+```
+**pg1, pg1_personalized**
+
+
+
+```{r}
+followers  %>% ggplot(aes(log10(pg1))) +
+  stat_ecdf(geom="step",aes(group= clust_cat, color= clust_cat )) + 
+  labs(y = "cumulative probability")+labs(title = "pagerank1")
+
+followers  %>% ggplot(aes(log10(pg1_core3))) +
+  stat_ecdf(geom="step",aes(group= clust_cat, color= clust_cat )) + 
+  labs(y = "cumulative probability")+labs(title = "pagerank1 on 3-core")
+
+followers  %>% ggplot(aes(log10(pg2))) +
+  stat_ecdf(geom="step",aes(group= clust_cat, color= clust_cat )) + 
+  labs(y = "cumulative probability")+labs(title = "pagerank2")
+
+followers  %>% ggplot(aes(log10(pg1_personalized))) +
+  stat_ecdf(geom="step",aes(group= clust_cat, color= clust_cat )) + 
+  labs(y = "cumulative probability")+labs(title = "pagerank1 personalized")
+
+followers  %>% ggplot(aes(log10(pg1_p_core3))) +
+  stat_ecdf(geom="step",aes(group= clust_cat, color= clust_cat )) + 
+  labs(y = "cumulative probability")+labs(title = "pagerank1 personalized on 3-core")
+
+followers  %>% ggplot(aes(log10(pg2_personalized))) +
+  stat_ecdf(geom="step",aes(group= clust_cat, color= clust_cat )) + 
+  labs(y = "cumulative probability")+labs(title = "pagerank2 personalized")
+
+```
+
+
+```{r}
+followers  %>% ggplot(aes(log10(followers_count))) +
+  stat_ecdf(geom="step",aes(group= clust_cat, color= clust_cat )) + 
+  labs(y = "cumulative probability")+labs(title = "follower count")
+
+followers  %>% ggplot(aes(log10(count_mean_timeline))) +
+  stat_ecdf(geom="step",aes(group= clust_cat, color= clust_cat )) + 
+  labs(y = "cumulative probability")+labs(title = "daily retweeting frequency")
+
+```
+
+## Next Step ?
+
+
+
+
+
+

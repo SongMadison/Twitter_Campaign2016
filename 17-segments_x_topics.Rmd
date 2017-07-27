@@ -1,0 +1,103 @@
+---
+title: "Segements and Topics interaction"
+author: "Song Wang"
+date: "June 28, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+rm(list =ls())
+knitr::opts_chunk$set(fig.width=12, fig.height=8, fig.path='Figs/',
+                      echo=FALSE, warning=FALSE, message=FALSE)
+
+library(tidyverse) #include ggplot2, dyplyr, readr, tydyr
+library(Matrix)
+
+```
+
+## The comment network.
+
+```{r}
+load("../report/2017-05-27/report_0626.RData")
+load("retweet_A_quoted-only.RData")
+tweets_with_cluster <- read.csv("../combined_data/tweets_with_cluster_info.csv", colClasses = c("character"))
+tweets_with_cluster$cluster_id <- as.integer(tweets_with_cluster$cluster_id)
+tweets_with_cluster$cluster_cat <- factor(tweets_with_cluster$cluster_cat, levels= c("campaign tweets","endorsement & surrogates",  "great poll number",  "border, trade & jobs", "criticize opponents",  "criticize the establishment", "criticize HRC",  "criticize media")) 
+levels(tweets_with_cluster$cluster_cat)
+source("function.R")
+
+dim(A)
+
+users <- users %>% left_join(followers[,c("id_str","clust_cat")], by = "id_str")
+#tmp1 <- users %>% left_join(followers[,c("screen_name","clust_cat")], by = "screen_name")
+users_A <- subset(users, !is.na(clust_cat))
+Z <- membershipM(labs = match(users_A$clust_cat, levels(users_A$clust_cat)))
+
+tweets <- tweets%>% left_join(tweets_with_cluster[,c("id_str", "cluster_cat")])
+tweets_A <- subset(tweets, !is.na(cluster_cat))
+Y <- membershipM(labs = match(tweets_A$cluster_cat, levels(tweets_A$cluster_cat)))
+
+A1 <- A[match(users_A$id_str, users$id_str), match(tweets_A$id_str, tweets$id_str)]
+
+freq_tweets <- t(Z)%*% A1
+mean_tweets = colMeans(A1)
+distinct_mat <- freq_tweets - matrix(rep(1,length(levels(users_A$clust_cat)))) %*% matrix(mean_tweets, nrow =1)
+tweets_ids <- apply(distinct_mat, MARGIN = 1, function(x) order(-x)[1:5])
+tweets_ids <- as.vector(tweets_ids)
+distinct_tweets <- tweets_A[tweets_ids,]
+distinct_tweets$segement <- rep(levels(users_A$clust_cat), each = 5)
+
+
+
+seg_x_topics <- t(Z) %*% A1 %*% Y
+colnames(seg_x_topics) <- levels(tweets_A$cluster_cat)
+rownames(seg_x_topics) <- levels(users_A$clust_cat)
+
+
+dat <- as.data.frame(as.table(as.matrix(seg_x_topics)))
+names(dat) <- c("segment", "topic", "count")
+p1 <- dat %>% ggplot(aes(x = segment , y = count, fill = topic, label = topic)) +
+  geom_bar(stat = "identity", position = 'fill' ) +
+  theme(axis.text.x= element_text(angle = 45, hjust = 1))+
+  scale_fill_brewer(palette="Set2")
+
+p2 <- dat %>% ggplot(aes(x = topic, segment , y = count, fill = segment, label = topic)) +
+  geom_bar(stat = "identity", position = 'fill' ) +
+  #geom_text(size = 3, position = position_stack(vjust = 0.5)) +
+  theme(axis.text.x= element_text(angle = 45, hjust = 1))+
+  scale_fill_brewer(palette="Set2")
+
+p3 <- balloon.plot(seg_x_topics, text = T, xlabel = colnames(seg_x_topics), ylabel =rownames(seg_x_topics))
+
+liberal_comments <- subset(users_A, clust_cat=='liberals') %>% left_join(retws, by = c('id_str' = 'user_id_str'))
+men_comments <- subset(users_A, clust_cat=="men's interests") %>% left_join(retws, by = c('id_str' = 'user_id_str'))
+
+
+p1
+p2
+p3
+
+liberal_comments$text[1:10]
+
+men_comments$text[1:10]
+
+
+distinct_tweets[,c(1:2,4:6,3)]
+
+```
+
+
+```{r output, eval = F}
+
+write.csv(liberal_comments, file = "../report/2017-06-28/liberal_comments.csv",row.names = F)
+write.csv(men_comments, file = "../report/2017-06-28/men_comments.csv",row.names = F)
+write.csv(distinct_tweets, file = "../report/2017-06-28/distinct_top5_most_commented.csv", row.names = F)
+pdf("../report/2017-06-28/seg_x_topics_comments_part.pdf")
+p1
+p2
+p3
+dev.off()
+
+```
+
+

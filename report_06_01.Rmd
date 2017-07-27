@@ -1,14 +1,14 @@
 ---
 title: "Segmenting Trump Twitter Followers Using Spectral Clustering"
-date: "`r Sys.Date()`"
 output:
   html_document: default
   pdf_document: default
+date: '`r Sys.Date()`'
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(fig.width=12, fig.height=8, fig.path='Figs/',
-                      echo=FALSE, warning=FALSE, message=FALSE)
+                      echo=FALSE, message=FALSE)
 
 library(tidyverse) #include ggplot2, dyplyr, readr, tydyr
 #library(dygraphs) # dynamic graph
@@ -16,11 +16,11 @@ library(xts)
 library(Matrix)
 library(data.table)
 theme_update(plot.title = element_text(hjust = 0.5))
-
 source("function.R")
 ```
 
-```{r process data, include=FALSE}
+
+```{r process data, include=FALSE, eval=FALSE}
 followers <- data.table::fread("../results_following/followers_with_cluster_info.csv", colClasses = c("character"))
 followers <- data.frame(followers)
 
@@ -33,8 +33,7 @@ followers$first_date_timeline <- as.Date(followers$first_date_timeline)
 followers$last_date_timeline <- as.Date(followers$last_date_timeline)
 
 #non-numerical
-non_numerical_cols <- c("period","cluster", "clust_label","clust_cat","id_str", "screen_name", 
-                        "name",  "description","created_at", "lang",
+non_numerical_cols <- c("period","cluster", "clust_label","clust_cat","id_str", "screen_name", "name",  "description","created_at", "lang",
                         "location", "time_zone", "verified", "first_date_timeline","last_date_timeline")
 non_numerical_ids <- match(non_numerical_cols, names(followers))
 for( i in 1:ncol(followers)){
@@ -53,9 +52,8 @@ rm(non_numerical_cols,non_numerical_ids)
 # followers[['pg1_p_core3']][which(followers[['pg1_p_core3']] == 0)] <- NA
 
 #rename and reorder
-followers$clust_cat[followers$clust_cat=="anti-feminist conservatives"] = "men's interests"
-followers$clust_cat[followers$clust_cat == "news&regional"] = "news & regional"
-followers$clust_cat <- factor(followers$clust_cat, levels = c("Trump supporters", "conservatives", "news & regional", "international", "men's interests", "liberals",  "non-political", "other countries"))
+
+followers$clust_cat <- factor(followers$clust_cat, levels = c("Trump supporters", "Trump supporters-alt right","alt right", "conservatives", "mainstream politics", "men's interest", "liberals",  "non-political", "other countries"))
 table(followers$clust_cat)
 
 followers$period[followers$period == "before announcement"] = "pre announcement"
@@ -64,272 +62,219 @@ followers$period[followers$period == "before election"] = "general election"
 followers$period = factor(followers$period, levels = c("pre announcement", "primary election", "general election"))
 table(followers$period)
 
+save(followers, file = "../report/2017-05-27/report_0626.RData")
 ```
 
+
+
+
+## Abstract
+
+
+With Twitter playing an indispensable role in Donald Trump’s ascent to power, this study seeks to understand the composition of his Twitter followers with cluster analysis. Various data related to Trump’s Twitter followers, including information about the accounts they are following are collected via a Twitter API. A variant spectral clustering is applied to the graph between followers and their friends; eight segments revealed themselves including Trump supporters, conservatives, liberals, and non-political etc. Further validation and statistical analyses are conducted to understand these segments and detect the “deplorables”. All these analysis help understand the amplification of Trump communication on Twitter.
+
+
 ## Introduction
-first version May 31, 2017
-updated on Jun 1, Jun 12, June 26
+
+This study seeks to understand the changing fabric of the composition of Trump’s Twitter followers using cluster analysis. We intend to answer the following questions:
+
+Q1: Who were following Trump during the 2016 US presidential election cycle? (What are the different segments of his followers?) 
+
+Q2: Were there any deplorables as Clinton claimed?
+
+Q3: What roles did different segments play in engaging with Trump and amplifying Trump influence?
+   
+    - retweeting frequency
+   
+    - interested topics
+   
+    - the role of bots
+    
 
 
 
+## Data sets:
+377725 followers out of 13 million (as of Nov 8, 2016).
 
+- followers’ profile (description, language, region etc.)
 
+- followers’ friends (accounts they are following)
 
-## Part I: Using Pagerank to detect bots.
-PageRank was developed to evaluate the importance of web-pages via the link structures. More generally, it can used as a centrality measures of nodes in various networks. 
+- followers’ timeline (up to 3200 tweets per follower)
 
-Here we hypothsize that bots have fewer followers and thus lower pagerank scores. A benefits that pagerank has is that it is difficult for bots to adjust themselves to change the scores. 
+- following accounts profile (~9m followed by 10 people in sample)
 
-We calculate the pagerank scores of each Trump followers, use the verified account as non-bots accounts to see whether there is differences for this scores.
+Visualzation is as follows: 
 
-Two pagerank scores presented here
+```{r, out.width = "600px"}
+knitr::include_graphics("../Poster_Jun2017/network_data.png")
+```
 
-1.Pagerank1 from the network among **377725** followers themseleves.
+## Methods (Procedures)
 
-* Network statistics: 377725 nodes, 20766474 edges, mean degree = 54.98.
-   **65.8%** have zero out degree(following nobody); **18.2%** have zero in degree; **12.6%** have zero degrees
+1. Partition the followers into 3 stages based on when they start to follow Trump. This has the following benefits: Twitter users in different stages are quite different. There are many new users in the third stage. Compared with old users, they tend to have fewer followers, friends, tweets etc. 2, dynamic of the users composition.
 
-* Page rank actually don't work well!  -- not able to ditinguish verified account and regular accounts
+2. For each stage, applying spectral clustering to the graph between Trump followers and accounts they are following (key step)
 
-2. Pagerank2 from the symmetrized bipartite graph between followers and people they are following (>=10).
+> **Clustering algorithm**:
 
-* Network statistics: (considered as bipartite graph) 324933 x 9118691, total edges: 525,894,470.
-5080581 out 9,118,691 have at least 10 followers in each stage. 9,118,691 have 10 followers among all the sample of 377725(324933).
+>Input: Given adjacency matrix A, total number of followers of following accounts (columns), and number of clusters k:
 
-* no zero degrees. 1190/324933/377725 having <10 friends (out degree); min in degree is 10
+*weight the graph:  
 
-* Page rank has more very low scores (1e-7 (~12%, ~2%), 1e-6.5 (37%, 15%)). See the plot below.
+```{r, out.width = "400px"}
+knitr::include_graphics("../Poster_Jun2017/weightingGraph.png")
+```
+
+*calculate the left singular vectors of $L$ denoted as $X_k$ 
+
+*normalize the norms of  rows in $X_k$, and run K-means.
+
+Interpret and validate the clusters
+
+use the clusters to answer questions: 
+    + deplorables, 
+    + interested topics 
+    + detecting bots  
+
 
 ```{r loading data}
 #load("../report/2017-05-27/report_0601.RData")
-#load("../report/2017-05-27/report_0626.RData")
-followers$clust_cat <- addNA(followers$clust_cat)
-levels(followers$clust_cat)[9] <- "NA"
+load("../report/2017-05-27/report_0626.RData")
+#followers <- subset(followers, !is.na(cluster))
+#followers$clust_cat <- addNA(followers$clust_cat)
+#levels(followers$clust_cat)[9] <- "NA"
 table(followers$clust_cat)
 table(followers$period)
+
+followers %>% mutate(is_NA = is.na(pg2) ) %>% group_by(period, is_NA) %>%summarise(count = n()) %>% ggplot(aes(x = period, y= count, fill = is_NA))+geom_bar(stat = "identity", position = "fill") + xlab("period") + ylab("Percentage") + ggtitle("NA over period") + scale_fill_brewer(palette = "Set2")
+```
+
+## PART 1: Addressing the missing value and line plots of new Trump supporters
+
+```{r}
+followers %>% mutate(million = time_order%/%100000+1) %>% group_by(million, clust_cat) %>% summarise(count = n()) %>% ggplot(aes(x = factor(million), y = count, fill = clust_cat)) +
+  geom_bar(position = "fill", stat = "identity" ) +
+  scale_fill_brewer (palette="Spectral") + 
+  geom_vline(xintercept = 30) + geom_text(aes(30,0,label = "announced candidacy", vjust = 1)) +
+  geom_vline(xintercept = 98) + geom_text(aes(98,0,label = "became the nominee", vjust = 1)) +
+  theme(axis.text.x=element_blank()) + xlab("Every 100k chunk") + ylab("Percentage")
+
+followers <- followers %>% subset(!is.na(cluster))
+```
+
+This is likely due to the downloading artifact. I download the friends followers on Mar 15, finished on Mar 19, trump00-trump06.json. ~ 6386161 out of 12877541 -- corresponding to 133012 out of 377725 (377811)
+
+5234787425/377725; 1842950689/133012
+
+To overcome this, remove NA, or use absolute count.
+
+```{r}
+
+followers %>% mutate(million = time_order%/%100000+1) %>% group_by(million, clust_cat) %>% summarise(count = n()) %>% ggplot(aes(x = factor(million), y = count, fill = clust_cat)) +
+  geom_bar(position = "fill", stat = "identity" ) +
+  scale_fill_brewer (palette="Spectral") + 
+  geom_vline(xintercept = 30) + geom_text(aes(30,0,label = "announced candidacy", vjust = 1)) +
+  geom_vline(xintercept = 98) + geom_text(aes(98,0,label = "became the nominee", vjust = 1)) +
+  theme(axis.text.x=element_blank()) + xlab("Every 100k chunk") + ylab("Percentage")
+
+```
+
+
+
+```{r}
+df1 <- followers %>% select(cluster, time_order,clust_cat) %>% subset(!is.na(cluster)) %>% mutate(million = time_order%/%100000+1) %>% group_by(million, clust_cat) %>% summarise(count = n())
+df1$ecdf <- df1$count
+df1$size <- df1$count
+for (nn in levels(df1$clust_cat)){
+    df1$ecdf[df1$clust_cat == nn] = cumsum(df1$count[df1$clust_cat == nn])
+}
+for (nn in unique(df1$million)){
+    df1$size[df1$million == nn] = sum(df1$count[df1$million == nn])
+}
+
+# df1%>%
+#     ggplot(aes(x = factor(million), y = count, group = clust_cat, color = clust_cat)) + geom_path()+
+#     geom_path(aes(x = factor(million), y = log10(ecdf)))  + 
+#     geom_vline(xintercept = 30, linetype = 2) + geom_text(aes(30,0,label = "announced candidacy", vjust = 1)) +
+#     geom_vline(xintercept = 98, linetype = 2) + geom_text(aes(98,0,label = "became the nominee", vjust = 1)) +theme(axis.text.x=element_blank())+
+#     xlab("Every 100k chunk")+ylab("Number of Followers") +ggtitle("total counts increase over time")
+
+df1%>%
+    ggplot(aes(x = factor(million), y = count/size, group = clust_cat, color = clust_cat)) + geom_path()+
+    geom_path(aes(x = factor(million), y = count/size))  +
+    geom_vline(xintercept = 30, linetype = 2) + geom_text(aes(30,0,label = "announced candidacy", vjust = 1)) +
+    geom_vline(xintercept = 98, linetype = 2) + geom_text(aes(98,0,label = "became the nominee", vjust = 1)) +theme(axis.text.x=element_blank())+
+    xlab("Every 100k chunk")+ylab("Percentage") +ggtitle("composition of new Trump followers")
+
+df1%>%
+    ggplot(aes(x = factor(million), y = count/size, group = clust_cat, color = clust_cat)) + geom_path()+
+    geom_path(aes(x = factor(million), y = count/size))  +
+    geom_vline(xintercept = 30, linetype = 2) +
+    geom_vline(xintercept = 98, linetype = 2)  +theme(axis.text.x=element_blank())+
+    xlab("Every 100k chunk")+ylab("Percentage") +ggtitle("composition of new Trump followers")+facet_wrap(~ clust_cat,  nrow = 3)
+
+# df1 %>%ggplot(aes(x = factor(million), color = clust_cat, group = clust_cat) )+
+#     geom_path(aes(x = factor(million), y = log10(ecdf)))  + 
+#     geom_vline(xintercept = 30, linetype = 2) + geom_text(aes(30,0.5,label = "announced candidacy", vjust = 1)) +
+#     geom_vline(xintercept = 98, linetype = 2) + geom_text(aes(98,0.5,label = "became the nominee", vjust = 1)) +theme(axis.text.x=element_blank())+
+#     xlab("Every 100k chunk")+ylab("Number of Followers") +ggtitle("composition of new Trump followers")
+
+
+df1 %>%ggplot(aes(x = factor(million), color = clust_cat, group = clust_cat) )+
+    geom_path(aes(x = factor(million), y = ecdf))  + 
+    geom_vline(xintercept = 30, linetype = 2) + geom_text(aes(30,0,label = "announced candidacy", vjust = 1)) +
+    geom_vline(xintercept = 98, linetype = 2) + geom_text(aes(98,0,label = "became the nominee", vjust = 1)) +theme(axis.text.x=element_blank())+
+    xlab("Every 100k chunk")+ylab("Number of Followers") +ggtitle("total counts increase over time")
+
+
 ```
 
 
 ```{r}
-p0 <- followers %>% group_by(period, clust_cat) %>% summarise(count = n()) %>% 
-  ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
-  geom_bar(stat = "identity" ) +
-  geom_text(size = 3, position = position_stack(vjust = 0.5)) +
-  scale_fill_brewer(palette="Spectral") +xlab("")+ggtitle("full data")
-```
+df2 <- followers %>% rownames_to_column(var = "row_id") %>% mutate(row_id = as.integer(row_id)) %>% select(cluster, row_id, clust_cat) %>% subset(!is.na(cluster)) %>% mutate(million = row_id%/%10000+1) %>% group_by(million, clust_cat) %>% summarise(count = n())
+df2$ecdf <- df2$count
+df2$size <- df2$count
+for (nn in levels(df2$clust_cat)){
+    df2$ecdf[df2$clust_cat == nn] = cumsum(df2$count[df2$clust_cat == nn])
+}
+for (nn in unique(df2$million)){
+    df2$size[df2$million == nn] = sum(df2$count[df2$million == nn])
+}
 
+df2 %>%
+    ggplot(aes(x = factor(million), y = count/size, group = clust_cat, color = clust_cat)) + geom_path()+
+    geom_path(aes(x = factor(million), y = count/size))  + 
+    geom_vline(xintercept = 12.4, linetype = 2) +         geom_text(aes(12.4,0,label = "announced candidacy", vjust = 1)) +
+    geom_vline(xintercept = 31.7, linetype = 2) + geom_text(aes(31.7,0,label = "became the nominee", vjust = 1)) +theme(axis.text.x=element_blank())+
+    xlab("Every 10k chunk")+ylab("Percentage") +ggtitle("composition of new Trump followers")
+#best so far. show th composition and the exact percentage of each group
 
-### Two pageranks
+# df2 %>%ggplot(aes(x = factor(million), color = clust_cat, group = clust_cat) )+
+#     geom_path(aes(x = factor(million), y = log10(ecdf)))   +
+#     geom_vline(xintercept = 12.4, linetype = 2) + geom_text(aes(12.4,0,label = "announced candidacy", vjust = 1)) +
+#     geom_vline(xintercept = 31.7, linetype = 2) + geom_text(aes(31.7,0,label = "became the nominee", vjust = 1)) +theme(axis.text.x=element_blank())+
+#     xlab("Every 10k chunk")+ylab("Number of Followers") +ggtitle("total counts increase over time")
+#log transformation, there is not clear pattern
 
-**pagerank 1 (w/o personalization)**
-
-```{r}
-p11 <- followers %>% ggplot(aes(x = log10(pg1))) + stat_ecdf(geom="step", aes(group = verified, color = verified )) +labs(x= "pagerank (in log10)", y = "cumulative probability") + ggtitle("pagerank1")
-
-p12 <- followers %>% ggplot(aes(x = log10(pg1_personalized))) + stat_ecdf(geom="step",aes(group = verified, color = verified )) +  labs(x= "pagerank (in log10)", y = "cumulative probability") + ggtitle("pagerank1 personalized")
-
-multiplot(p11, p12,  cols = 2)
-
-# p12 <- ggplot(dat, aes(logpg1, ..density..))+
-#   geom_histogram(aes(color=verified,  group = verified),  bins =100, position = "stack")+
-#   labs(x= "pagerank (in log10)")
-# p13 <- ggplot(dat, aes(logpg1, color=verified, fill = verified ))+
-#   geom_density(aes(  group = verified), alpha =0.1,   position = "stack")+ labs(x= "pagerank (in log10)")
-# multiplot(p11, p12, p13,  cols = 2)
-```
-
-
-```{r}
-p11_1 <- followers %>% ggplot(aes(x = log10(pg1_core3))) + stat_ecdf(geom="step",aes(group = verified, color = verified )) +  labs(x= "pagerank (in log10)", y = "cumulative probability") + ggtitle("pagerank1 on 3-core")
-
-p12_1 <- followers %>% ggplot(aes(x = log10(pg1_p_core3))) + stat_ecdf(geom="step",aes(group = verified, color = verified )) +  labs(x= "pagerank (in log10)", y = "cumulative probability") + ggtitle("pagerank1 personalized on 3-core")
-multiplot(p11_1, p12_1,  cols = 2)
-```
-
-**pagerank 2 (w/o personalization)**
-
-```{r}
-p21 <- followers %>% ggplot(aes(x = log10(pg2))) + stat_ecdf(geom="step",aes(group = verified, color = verified )) + labs(x= "pagerank (in log10)", y = "cumulative probability")+ ggtitle("pagerank2")
-
-p22 <- followers %>% ggplot(aes(x = log10(pg2_personalized))) + stat_ecdf(geom="step",aes(group = verified, color = verified )) +  labs(x= "pagerank (in log10)", y = "cumulative probability") + ggtitle("pagerank2 personalized")
-multiplot(p21, p22, cols = 2) 
-```
-
-
-
-Next, the plots above indicates (espcially for pagerank1), verified account tend to have high scores. Bots tend to have lower scores, let's look at the followers with lowest **5%** of the scores (```X <= quantile(X, 0.05, na.rm = T)+1e-10)```). 
-```{r}
-#68727 taking minimum values, using 1e-10 breaking 
-p31 <- followers %>% subset( pg1 <= (quantile(pg1, 0.05, na.rm = T)+1e-10)) %>% group_by(period, clust_cat) %>% summarise(count = n()) %>% ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
-  geom_bar(stat = "identity" ) +
-  geom_text(size = 3, position = position_stack(vjust = 0.5)) +
-  scale_fill_brewer(palette="Spectral")+ggtitle("tail of pg1")
-
-p31_1 <- followers %>% subset(pg1_personalized <= quantile(pg1_personalized, 0.05, na.rm = T)+1e-10) %>% group_by(period, clust_cat) %>% summarise(count = n()) %>% ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
-  geom_bar(stat = "identity" ) +
-  geom_text(size = 3, position = position_stack(vjust = 0.5)) +
-  scale_fill_brewer(palette="Spectral") +ggtitle(paste0("tail of pg1_personalized"))
-
-p32 <- subset(followers, pg2 <= quantile(pg2, 0.05, na.rm = T)+1e-10)%>% group_by(period, clust_cat) %>% summarise(count = n()) %>% ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
-  geom_bar(stat = "identity" ) +
-  geom_text(size = 3, position = position_stack(vjust = 0.5)) +
-  scale_fill_brewer(palette="Spectral")+ggtitle("tail of pg2")
-
-p32_1 <- subset(followers, pg2_personalized <= quantile(pg2_personalized, 0.05, na.rm = T)+1e-10)%>% group_by(period, clust_cat) %>% summarise(count = n()) %>% ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
-  geom_bar(stat = "identity" ) +
-  geom_text(size = 3, position = position_stack(vjust = 0.5)) +
-  scale_fill_brewer(palette="Spectral")+ggtitle("tail of pg2_personalized")
-
-
-
-
-p33 <- followers %>% 
-  subset(pg1_core3 <= quantile(pg1_core3, 0.05, na.rm = T)+1e-10)%>% 
-  group_by(period, clust_cat) %>% summarise(count = n()) %>% 
-  ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
-  geom_bar(stat = "identity" ) +
-  geom_text(size = 3, position = position_stack(vjust = 0.5)) +
-  scale_fill_brewer(palette="Spectral") + ggtitle("tail of pagerank_core3")
-
-p33_1 <- followers %>% 
-  subset(pg1_p_core3 <= quantile(pg1_p_core3, 0.05, na.rm = T)+1e-10)%>% 
-  group_by(period, clust_cat) %>% summarise(count = n()) %>% 
-  ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
-  geom_bar(stat = "identity" ) +
-  geom_text(size = 3, position = position_stack(vjust = 0.5)) +
-  scale_fill_brewer(palette="Spectral") + ggtitle("tail of pagerank_p_core3")
-
-
-p34 <- subset(followers,followers_count <= quantile(followers_count, 0.05, na.rm = T)+1e-10)%>% group_by(period, clust_cat) %>% summarise(count = n()) %>% ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
-  geom_bar(stat = "identity" ) +
-  geom_text(size = 3, position = position_stack(vjust = 0.5)) +
-  scale_fill_brewer(palette="Spectral")+ggtitle("tail of followers_count")
-
-p35 <- followers %>% 
-  mutate(followers_following = log10((followers_count+1)/(1+friends_count)))%>%
-  subset(followers_following <= quantile(followers_following, 0.05, na.rm = T)+1e-10)%>% 
-  group_by(period, clust_cat) %>% summarise(count = n()) %>% 
-  ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
-  geom_bar(stat = "identity" ) +
-  geom_text(size = 3, position = position_stack(vjust = 0.5)) +
-  scale_fill_brewer(palette="Spectral")+ ggtitle("tail of followers_counts friends_counts ratio")
-
-p36 <- followers %>% 
-    mutate(retweet_total = RT_only+ RT_comments)%>%
-    subset(retweet_total >= quantile(retweet_total, 0.95, na.rm = T)+1e-10)%>% 
-  group_by(period, clust_cat) %>% summarise(count = n()) %>% 
-  ggplot(aes(x = period, y = count, fill = clust_cat, label = clust_cat)) +
-  geom_bar(stat = "identity" ) +
-  geom_text(size = 3, position = position_stack(vjust = 0.5)) +
-  scale_fill_brewer(palette="Spectral")+ ggtitle("Right tail of retweet count total")
-
-```
-
-**The tails part of pagerank1, pagerank2, etc **
-
-```{r tail part of PageRanks}
-
-# pdf("tail_bots.pdf", onefile = TRUE)
-
-multiplot(p0, p31, cols = 2)
-
-multiplot(p0, p31_1, cols = 2)
-
-multiplot(p0, p32, cols = 2)
-
-multiplot(p0, p32_1, cols = 2)
-
-multiplot(p0, p33, cols = 2)
-
-multiplot(p0, p33_1, cols = 2)
-
-multiplot(p0, p34, cols = 2)
-
-multiplot(p0, p35, cols = 2)
-
-multiplot(p0, p36, cols = 2)
-
-#dev.off()
-
-
-cor(followers[,c("followers_count", "friends_count", "count_mean_timeline",'pg1', 'pg1_personalized','pg2', 'pg2_personalized','pg1_core3', "pg1_p_core3")], use = 'pairwise.complete.obs')
+df2 %>%ggplot(aes(x = factor(million), color = clust_cat, group = clust_cat) )+
+    geom_path(aes(x = factor(million), y = ecdf))   +
+    geom_vline(xintercept = 12.4, linetype = 2) + geom_text(aes(12.4,0,label = "announced candidacy", vjust = 1)) +
+    geom_vline(xintercept = 31.7, linetype = 2) + geom_text(aes(31.7,0,label = "became the nominee", vjust = 1)) +theme(axis.text.x=element_blank())+
+    xlab("Every 10k chunk")+ylab("Number of Followers") +ggtitle("total counts increase over time")
+# seem linear, confusing
 
 ```
 
 
-**PageRank Scores within each clusters**
+  
+The biggest features for different segement is the retweeting pattern. frequency stands out. Therefore, we want to see the pattern about retweeting w/o comments.
+
+![](../report/2017-06-28/retweet_freq_table.png)
+
+## PART II: Retweeting behaviour
 
 ```{r, eval = FALSE}
-followers  %>% ggplot(aes(log10(pg1))) +
-  stat_ecdf(geom="step",aes(group= clust_cat, color= clust_cat )) + 
-  labs(y = "cumulative probability")+labs(title = "pagerank1")
-
-followers  %>% ggplot(aes(log10(pg1_core3))) +
-  stat_ecdf(geom="step",aes(group= clust_cat, color= clust_cat )) + 
-  labs(y = "cumulative probability")+labs(title = "pagerank1 on 3-core")
-
-followers  %>% ggplot(aes(log10(pg2))) +
-  stat_ecdf(geom="step",aes(group= clust_cat, color= clust_cat )) + 
-  labs(y = "cumulative probability")+labs(title = "pagerank2")
-
-followers  %>% ggplot(aes(log10(pg1_personalized))) +
-  stat_ecdf(geom="step",aes(group= clust_cat, color= clust_cat )) + 
-  labs(y = "cumulative probability")+labs(title = "pagerank1 personalized")
-
-followers  %>% ggplot(aes(log10(pg1_p_core3))) +
-  stat_ecdf(geom="step",aes(group= clust_cat, color= clust_cat )) + 
-  labs(y = "cumulative probability")+labs(title = "pagerank1 personalized on 3-core")
-
-followers  %>% ggplot(aes(log10(pg2_personalized))) +
-  stat_ecdf(geom="step",aes(group= clust_cat, color= clust_cat )) + 
-  labs(y = "cumulative probability")+labs(title = "pagerank2 personalized")
-
-```
-
-
-##Part II verifying the clsutering
-
-In this part, I did the following things:
-
-1. visualize the similarity among 50 clusters in each of the three stages (clusters are ordered based on the category names)
-
-2. explore [sparseAHC](https://github.com/khabbazian/sparseAHC), algorithm doing clustering based on the similarity graph. This is trying to verified 1, the performance of the algorithms; 2, justify that the combining the 50 clusters into 8 categories is valid.
-
-3. the results: 
-  + the overlapping between sparseAHC and manually combined labels is low.
-  + the balloon plot show that the similarity among Trump supporters are realatively high.
-  
-  
-## Some Validation about tweet counts
-
-- Address potential issues, 3200 tweets, may not cover all the tweets, definitely not covered (10.5%), and (12.8%) we don't have their timeline -- due to privacy or no tweets.
-```{r}
-# clearly truncatation for total at 3200 
-table((followers$first_date_timeline > as.Date('2015-06-16'))*(followers$count_total_timeline > 3200), followers$period)
-sum((followers$first_date_timeline > as.Date('2015-06-16'))*(followers$count_total_timeline > 3200), na.rm = T)/nrow(followers)
-sum(is.na(followers$first_date_timeline))/nrow(followers)
-```
-
-- Account started to following Trump at different time. Currently, constraint to 3 following stages, Trump followers always tweets more frequently.
-
-```{r}
-p91 <- followers  %>% ggplot(aes(log10(1+count_mean_timeline))) +
-  stat_ecdf(geom="step",aes(group= clust_cat, color= clust_cat )) + 
-  labs(y = "cumulative probability")+facet_grid(period~.)
-p91
-```
-
-```{r}
-followers  %>% mutate(retweet_ajusted = log10(1+retweet_trump_count)/(log10(1+count_total_timeline))) %>%ggplot(aes(retweet_ajusted)) +
-  stat_ecdf(geom="step",aes(group= clust_cat, color= clust_cat )) + 
-  labs(y = "cumulative probability")+facet_grid(period~.)
-```
-
-##Part III visualization of some variables.
-
-**Interaction among Followers segements and Tweets Topics**
-
-```{r}
 f1 = followers %>% gather(`campaign.slogan`:`via_at`, key = "topic", value = "count") %>% mutate (count = as.numeric(count))
 
 #16
@@ -370,6 +315,12 @@ f1$topic[f1$topic == "criticize.the.establishment"] = "criticize the establishme
 f1$topic[f1$topic == "great.poll.number"] = "great poll numbers"
 
 f1$topic = factor(f1$topic, levels = c("campaign tweets", "endorsement & surrogates", "great poll numbers", "border, trade & jobs", "criticize opponents", "criticize the establishment", "criticize HRC", "criticize media"))
+save(f1, file = "combined_topics_counts.RData")
+```
+
+
+```{r}
+load("combined_topics_counts.RData") #f1
 
 f1 %>% group_by(clust_cat, topic) %>% summarise(total_retweet_count = sum(count)) %>% ggplot(aes(x = clust_cat, y = total_retweet_count, fill = topic)) + geom_bar(stat = "identity", position = "fill") + theme(axis.text.x = element_text(angle = 50, hjust = 1)) + xlab("Cluster type") + ylab("Percentage of topics") + ggtitle("Retweet only") + scale_fill_brewer(palette = "Set2")
 
@@ -377,11 +328,118 @@ f1 %>% group_by(clust_cat, topic) %>% summarise(total_retweet_count = sum(count)
 
 ```
 
+## PART III: The commenting behaviour.
 
 ```{r}
+#load("../report/2017-05-27/report_0626.RData")
+load("retweet_A_quoted-only.RData")
+tweets_with_cluster <- read.csv("../combined_data/tweets_with_cluster_info.csv", colClasses = c("character"))
+tweets_with_cluster$cluster_id <- as.integer(tweets_with_cluster$cluster_id)
+tweets_with_cluster$cluster_cat <- factor(tweets_with_cluster$cluster_cat, levels= c("campaign tweets","endorsement & surrogates",  "great poll number",  "border, trade & jobs", "criticize opponents",  "criticize the establishment", "criticize HRC",  "criticize media")) 
+levels(tweets_with_cluster$cluster_cat)
+source("function.R")
+
+dim(A)
+
+users <- users %>% left_join(followers[,c("id_str","clust_cat")], by = "id_str")
+#tmp1 <- users %>% left_join(followers[,c("screen_name","clust_cat")], by = "screen_name")
+users_A <- subset(users, !is.na(clust_cat))
+Z <- membershipM(labs = match(users_A$clust_cat, levels(users_A$clust_cat)))
+
+tweets <- tweets%>% left_join(tweets_with_cluster[,c("id_str", "cluster_cat")])
+tweets_A <- subset(tweets, !is.na(cluster_cat))
+Y <- membershipM(labs = match(tweets_A$cluster_cat, levels(tweets_A$cluster_cat)))
+
+A1 <- A[match(users_A$id_str, users$id_str), match(tweets_A$id_str, tweets$id_str)]
+
+freq_tweets <- t(Z)%*% A1
+mean_tweets = colMeans(A1)
+distinct_mat <- freq_tweets - matrix(rep(1,length(levels(users_A$clust_cat)))) %*% matrix(mean_tweets, nrow =1)
+tweets_ids <- apply(distinct_mat, MARGIN = 1, function(x) order(-x)[1:5])
+tweets_ids <- as.vector(tweets_ids)
+distinct_tweets <- tweets_A[tweets_ids,]
+distinct_tweets$segement <- rep(levels(users_A$clust_cat), each = 5)
+rownames(distinct_tweets) <- NULL
+
+
+seg_x_topics <- t(Z) %*% A1 %*% Y
+colnames(seg_x_topics) <- levels(tweets_A$cluster_cat)
+rownames(seg_x_topics) <- levels(users_A$clust_cat)
+
+
+dat <- as.data.frame(as.table(as.matrix(seg_x_topics)))
+names(dat) <- c("segment", "topic", "count")
+
+p1 <- dat %>% ggplot(aes(x = segment , y = count, fill = topic, label = topic)) +
+  geom_bar(stat = "identity", position = 'fill' ) +
+  theme(axis.text.x= element_text(angle = 45, hjust = 1))+
+  theme_bw()+
+  scale_fill_brewer(palette="Set2")
+
+p2 <- dat %>% ggplot(aes(x = topic, y = count, fill = segment, label = segment)) +
+  geom_bar(stat = "identity", position = 'fill' ) +
+  #geom_text(size = 3, position = position_stack(vjust = 0.5)) +
+  theme(axis.text.x= element_text(angle = 45, hjust = 1))+
+  theme_bw()+
+  scale_fill_brewer(palette="Set2")
+
+p3 <- balloon.plot(seg_x_topics, text = T, xlabel = colnames(seg_x_topics), ylabel =rownames(seg_x_topics))
+
+liberal_comments <- subset(users_A, clust_cat=='liberals') %>% left_join(retws, by = c('id_str' = 'user_id_str'))
+men_comments <- subset(users_A, clust_cat=="men's interest") %>% left_join(retws, by = c('id_str' = 'user_id_str'))
+
+
+p1
+p2
+p3
+
+cat("liberal's comments:\n")
+liberal_comments$text[1:10]
+
+cat("mens's comments:\n")
+men_comments$text[1:10]
+
+distinct_tweets[,c(6,3)]
+
+
+```
+
+```{r output}
+write.csv(liberal_comments, file = "../report/2017-06-28/liberal_comments.csv",row.names = F)
+write.csv(men_comments, file = "../report/2017-06-28/men_comments.csv",row.names = F)
+write.csv(distinct_tweets, file = "../report/2017-06-28/distinct_top5_most_commented.csv", row.names = F)
+pdf("../report/2017-06-28/seg_x_topics_comments_part.pdf")
+p1
+p2
+p3
+dev.off()
+```
+
+
+
+## PART IV: Others plots: correction about tweet counts
+
+- Address potential issues, 3200 tweets, may not cover all the tweets, definitely not covered (10.5%), and (12.8%) we don't have their timeline -- due to privacy or no tweets.
+```{r}
+# clearly truncatation for total at 3200 
+table((followers$first_date_timeline > as.Date('2015-06-16'))*(followers$count_total_timeline > 3200), followers$period)
+sum((followers$first_date_timeline > as.Date('2015-06-16'))*(followers$count_total_timeline > 3200), na.rm = T)/nrow(followers)
+sum(is.na(followers$first_date_timeline))/nrow(followers)
+```
+
+- Account started to following Trump at different time. Currently, constraint to 3 following stages, Trump followers always tweets more frequently.
+
+```{r}
+followers  %>% ggplot(aes(log10(1+count_mean_timeline))) +
+  stat_ecdf(geom="step",aes(group= clust_cat, color= clust_cat )) + 
+  labs(y = "cumulative probability")+facet_grid(period~.)
+```
+**Account started to following Trump at different time. In term of time, early followers tend to have more followers, more engaged with Trump. In terms of ideology, Trump followers always tweets more frequently.**
+
+```{r}
+
 followers %>% mutate(log_daily_count = log10(1+count_mean_timeline)) %>% ggplot(aes(x = log_daily_count)) + geom_histogram(stat = "bin",  binwidth = 0.05) +labs(x = "average daily tweets (in log10)")
                  
-
 
 followers %>% mutate(log_total_count = log10(1+count_total_timeline)) %>% ggplot(aes(x = log_total_count)) +
   geom_histogram(stat = "bin",  binwidth = 0.1) +labs(x = "total tweets from timeline (in log10)")
@@ -389,58 +447,68 @@ followers %>% mutate(log_total_count = log10(1+count_total_timeline)) %>% ggplot
 followers %>% mutate(ndays = count_total_timeline/count_mean_timeline) %>%
   ggplot(aes(ndays)) + geom_histogram(aes(group= clust_cat, color= clust_cat), bins = 50, position = "stack")
 
-p51 <- followers %>% mutate(ndays = count_total_timeline/count_mean_timeline) %>%
+followers %>% mutate(ndays = count_total_timeline/count_mean_timeline) %>%
   ggplot(aes(ndays)) +stat_ecdf(geom="step",aes(group= clust_cat, color= clust_cat )) + 
   labs(y = "cumulative probability")
 
-p52 <-followers %>% mutate(ndays = count_total_timeline/count_mean_timeline) %>%
+followers %>% mutate(ndays = count_total_timeline/count_mean_timeline) %>%
   ggplot(aes(ndays)) + geom_histogram(aes( color= clust_cat),binwidth = 30)+facet_grid(clust_cat~.)
 
-p53<- followers %>% mutate(ndays = count_total_timeline/count_mean_timeline) %>%
+followers %>% mutate(ndays = count_total_timeline/count_mean_timeline) %>%
   ggplot(aes(ndays))+
   geom_density(aes(color= clust_cat, fill = clust_cat), alpha =0.1,   position = "stack")+facet_grid(clust_cat~.)
-p51
-p52
-p53
+
 ```
 
 
-```{r}
-p61 <- followers  %>% ggplot(aes(created_at)) +
-  geom_density(aes(color= clust_cat, fill = clust_cat), alpha =0.1,   position = "stack")+facet_grid(clust_cat~.)
-
-p62 <- followers  %>% subset(created_at > as.Date('2015-06-16')) %>%ggplot(aes(created_at)) +
-  geom_density(aes(color= clust_cat, fill = clust_cat), alpha =0.1,   position = "stack")+facet_grid(clust_cat~.)
-p61
-p62
-```
 
 ```{r}
-p71 <- followers  %>% subset(created_at > as.Date('2015-06-16')) %>%ggplot(aes(log10(count_mean_timeline))) +
-  geom_density(aes(color= clust_cat, fill = clust_cat), alpha =0.1,   position = "stack")+facet_grid(clust_cat~.)
-
-p72 <- followers  %>% subset(created_at > as.Date('2015-06-16'))%>% ggplot(aes(log10(count_mean_timeline))) +
+followers  %>% mutate(retweet_ajusted = log10(1+retweet_trump_count)/(log10(1+count_total_timeline))) %>%ggplot(aes(retweet_ajusted)) +
   stat_ecdf(geom="step",aes(group= clust_cat, color= clust_cat )) + 
-  labs(y = "cumulative probability")
-p71
-p72
+  labs(y = "cumulative probability")+facet_grid(period~.)
+```
+
+
+
+```{r}
+followers  %>% ggplot(aes(created_at)) +
+  geom_density(aes(color= clust_cat, fill = clust_cat), alpha =0.1,   position = "stack")+facet_grid(clust_cat~.)
+
+followers  %>% subset(created_at > as.Date('2015-06-16')) %>%ggplot(aes(created_at)) +
+  geom_density(aes(color= clust_cat, fill = clust_cat), alpha =0.1,   position = "stack")+facet_grid(clust_cat~.)
+
 ```
 
 ```{r}
-p81 <- followers %>% ggplot(aes(log10(1+count_mean_timeline))) +
+followers  %>% subset(created_at > as.Date('2015-06-16')) %>%ggplot(aes(log10(count_mean_timeline))) +
   geom_density(aes(color= clust_cat, fill = clust_cat), alpha =0.1,   position = "stack")+facet_grid(clust_cat~.)
 
-p82 <- followers  %>% ggplot(aes(log10(1+count_mean_timeline))) +
+followers  %>% subset(created_at > as.Date('2015-06-16'))%>% ggplot(aes(log10(count_mean_timeline))) +
   stat_ecdf(geom="step",aes(group= clust_cat, color= clust_cat )) + 
   labs(y = "cumulative probability")
 
-p81
+```
 
-p82
+```{r}
+followers %>% ggplot(aes(log10(1+count_mean_timeline))) +
+  geom_density(aes(color= clust_cat, fill = clust_cat), alpha =0.1,   position = "stack")+facet_grid(clust_cat~.)
+
+followers  %>% ggplot(aes(log10(1+count_mean_timeline))) +
+  stat_ecdf(geom="step",aes(group= clust_cat, color= clust_cat )) + 
+  labs(y = "cumulative probability")
 ``` 
 
-## Discussion 
-pote
+## Discussion
+
+
+1. Some potential issues (limitations). 
+
+--1: time issue new users vs. old users
+Twitter is a dynamic network and Twitter users are changing all the time. In the our analysis, we see that new Trump followers tend to have fewer followers and friends. In term of tweeting and retweeting behaviour, we also see new users have few such activities. Through segment the followers into three stages, we reduce the such effects on the clustering.
+
+
+2. https://www2018.thewebconf.org/call-for-papers/
+
 
 
 
