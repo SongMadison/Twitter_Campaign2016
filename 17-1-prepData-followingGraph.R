@@ -159,6 +159,9 @@ Min.   1st Qu.    Median      Mean   3rd Qu.      Max.
 10.00     13.00     19.00     54.14     36.00 103700.00 
 > mean(dr)
 1621.475
+
+the number not match the A1.RData etc well. Probably not the final version yet.
+#  55533 x 578739; 161493 X 714074; 105435 X 582487
 '
 
 
@@ -211,9 +214,7 @@ cc <- unique(el[,2])
 i_set <- match(el[,1], rr)
 j_set <- match(el[,2], cc)+length(rr) # index for c(rr,cc)
 rm(el)
-save(rr, cc, i_set, j_set, file = "../data/friends_info/edgelist_Feb27/RData/full_graph.RData")
+save(rr, cc, i_set, j_set, file = "../data/friends_info/edgelist_Feb27/RData/A123.RData")
 q(); R
-
-
 
 

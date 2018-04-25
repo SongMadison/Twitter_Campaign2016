@@ -7,6 +7,83 @@ output: html_document
 ```{r global_options, evel=FALSE }
 knitr::opts_chunk$set(eval = FALSE)
 ```
+#April 23, 2018
+"/data/SongWang/Twitter_Campaign2016/data/friends_info/edgelist_Feb27/RData":
+The A1.Rdata, A2.Rdata, A3.RData is a little bit different from those in 17-1-prepData-followingGraph.R
+```{r}
+load("A1.RData")
+dim(A)
+#[1]  55533 578739
+dr = rowSums(A)
+summary(dr)
+#    Min.  1st Qu.   Median     Mean  3rd Qu.     Max. 
+#    10.0    106.0    276.0    742.2    717.0 188703.0 
+dc = colSums(A)
+summary(dc)
+#    Min.  1st Qu.   Median     Mean  3rd Qu.     Max. 
+#    8.00    18.00    32.00    71.22    67.00 50993.00 
+load("A2.RData")
+dim(A)
+#[1] 161493 714074
+dr = rowSums(A)
+summary(dr)
+#   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+#   10.0   120.0   308.0   691.4   781.0 95683.0 
+dc = colSums(A)
+summary(dc)
+#    Min.  1st Qu.   Median     Mean  3rd Qu.     Max. 
+#     9.0     24.0     53.0    156.4    132.0 155147.0 
+
+rm(list=ls())
+load("A3.RData")
+dim(A)
+#[1] 105435 582487
+dr = rowSums(A)
+summary(dr)
+#    Min.  1st Qu.   Median     Mean  3rd Qu.     Max. 
+#    10.0    256.0    571.0    943.3   1083.0 114549.0 
+dc = colSums(A)
+summary(dc)
+#    Min.  1st Qu.   Median     Mean  3rd Qu.     Max. 
+#     9.0     22.0     53.0    170.8    137.0 103396.0
+```
+
+# April 22, 2018
+## To use the most up-to-date cluster labels, and also daily_counts is across all the tweets, 636.7 millions tweets
+```{r}
+df1 <- read.csv("../combined_data/Trump_followers_labels_6_18.csv")
+df2 <- read.csv("../combined_data/followers_with_cluster_info.csv", colClasses = c("character"))
+# df2$clust_cat[df2$clust_cat=="non-political"]="apolitical"
+# df2$clust_cat[df2$clust_cat=="Trump supporters-alt right"] = "far right conservatives"
+# df2$clust_cat[df2$clust_cat=="conservatives"] = "mainstream conservatives"
+
+sort(unique(df1$cluster_type))
+sort(unique(df2$clust_cat))
+names(df2)
+
+as_str = c("period","cluster", "clust_label","clust_cat","id_str","screen_name", "name", "description","created_at",
+           "lang", "location","time_zone", "verified","first_date_timeline","last_date_timeline")
+idx <- match(as_str, colnames(df2))
+for (i in 1:ncol(df2)){
+    if (i %in% idx){ 
+        next
+    }else{
+        df2[,i] <- as.numeric(df2[,i])
+    }
+}
+write.csv(df2, file = "../combined_data/followers_with_cluster_info.csv", row.names = F)
+
+
+
+dailycounts <- read.csv("../combined_data/daily_counts.csv")
+sum(dailycounts$count)
+#636719564
+
+```
+
+
+
+
 #July 2, 2017
 Find another problem in the downloding the profile info of the 13million users
 I found that somehow that the script did not download first 22512 ids. The sad thing is that I lost the original

@@ -1,9 +1,15 @@
 library(smappR)
+my_author_folder = './credentials/credential_mixed01/'
+
 sns <- c("wsmath1", "lovely_pinetree", "swang282")
 sn <- sns[2]
 getTimeline(paste0("../data/followers_info/jsons/",sn,Sys.Date(),".json"),
             oauth_folder = './credentials/credential_mixed01/',screen_name = sn
                           )
+
+getUsersBatch(screen_names = c("TEN_GOP", "Crystal1Johnson"), oauth_folder = my_author_folder)
+
+
 
 
 #behaviour on Twitter
