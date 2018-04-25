@@ -80,7 +80,9 @@ classify <- function(x, intervals){
 intervals <- c(1,2,4,10,50,max(Dr))
 counts <- table(classify(Dr,  intervals)  )
 tweets.by.user <- data.frame(order = factor(1:length(intervals[-1])), count = as.vector(counts)); 
-tweets.by.user$order <-factor(tweets.by.user$order, levels = 1:length(counts), labels =   paste0('[',intervals[1:(length(intervals)-1)],',',intervals[2:length(intervals)], ')'))
+
+tweets.by.user$order <- factor(tweets.by.user$order, levels = 1:length(counts), labels =   paste0('[',intervals[1:(length(intervals)-1)],',',intervals[2:length(intervals)], ')'))
+
 p2 <- ggplot(tweets.by.user, aes(order, count, fill = order))+
   geom_bar(stat="identity") + labs(title = "number of replies/retweets by each followers", x = '', ylab = "Number")
 

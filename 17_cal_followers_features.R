@@ -19,9 +19,13 @@ followers_info <- read.csv("../data/friends_info/edgelist_Feb27/samp3_info.csv",
 load("../results_following/result3/analysis.RData")  
 #L, svd_L, km_row, result50,
 Af = 1*(L>0)
-segments_with_label <- read.xlsx('../results_following/Trump_followers_three_stages.xlsx', 
-                                 colClasses = c("character"),
-                                 sheetIndex = 8)
+# segments_with_label <- read.xlsx('../results_following/Trump_followers_three_stages.xlsx', 
+#                                  colClasses = c("character"),
+#                                  sheetIndex = 8)
+segments_with_label  <- xlsx::read.xlsx("../combined_data/Trump_followers_labels 6_18.xlsx", 
+                           sheetIndex = 1)
+segments_with_label  <- segments_with_label[,2:5]
+
 segements_labels <- segments_with_label$cluster_label[1:50]
 
 # retweeting result

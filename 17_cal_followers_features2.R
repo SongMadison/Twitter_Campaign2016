@@ -12,6 +12,7 @@ library(xts)
 # add some new features.
 
 
+
 f1<- read.csv("../results_following/result1/followers_info_upated.csv", 
               colClasses = c("character"))
 f1$cluster <- as.numeric(f1$cluster)+100 #after primary
@@ -65,25 +66,53 @@ cat("two pageranks is done.")
 
 
 
-#clsuter_features: 5(period, cluster id, cluster_label, cluster_cat, cluster_note
-segments_with_label <- read.xlsx('../results_following/Trump_followers_three_stages.xlsx',
-                                 colClasses = c("character"),
-                                 sheetIndex = 8)
-category_names <- read.csv("../results_following/cluster_cat.csv", colClasses = c("character"))
+
+#clsuter_features: 5(period, cluster id, cluster_label, cluster_cat, clust_note
+# segments_with_label <- read.xlsx('../results_following/Trump_followers_three_stages.xlsx',
+#                                  colClasses = c("character"),
+#                                  sheetIndex = 8)
+#category_names <- read.csv("../results_following/cluster_cat.csv", colClasses = c("character"))
+
+segments_with_label <- read.xlsx('../combined_data/Trump_followers_labels_6_18.xlsx',
+                                 sheetIndex = 1)
+segments_with_label <- segments_with_label[,2:5]
+segments_with_label$cluster_label <- as.character(segments_with_label$cluster_label)
+segments_with_label$cluster_cat <- as.character(segments_with_label$cluster_cat)
+segments_with_label$cluster_note <- as.character(segments_with_label$cluster_note)
+
 cluster_features <- data.frame(
   period = rep(c("before announcement", "before primary", "before election"), 
                times = c(n3,n2, n1)), 
-  cluster = followers_info$cluster
+  cluster = as.integer(followers_info$cluster)
 )
 #add cluster_label, and category names #some duplicated labels give warnings
-cluster_features$clust_label = factor(cluster_features$cluster, levels = 1:150,
-                                      labels = segments_with_label$cluster_label)
-cluster_features$clust_label <- as.character(cluster_features$clust_label)
-cluster_features$clust_cat <- cluster_features$clust_label
-for( i in 1:nrow(category_names)){
-  cluster_features$clust_cat[which(cluster_features$clust_label == category_names$cluster_label[i])] <-
-    category_names$cluster_cat1[i]
-}                                                    
+cluster_features <- cluster_features %>% left_join(segments_with_label, 
+                                                   by = c("cluster" = "cluster_id"))
+#change back to old names
+names(cluster_features) <- c("period", "cluster", "clust_label","clust_cat","clust_note")
+cluster_features <- cluster_features[,1:4] #remove note
+                                                    
+
+# #clsuter_features: 5(period, cluster id, cluster_label, cluster_cat, cluster_note
+# segments_with_label <- read.xlsx('../results_following/Trump_followers_three_stages.xlsx',
+#                                  colClasses = c("character"),
+#                                  sheetIndex = 8)
+# category_names <- read.csv("../results_following/cluster_cat.csv", colClasses = c("character"))
+# cluster_features <- data.frame(
+#   period = rep(c("before announcement", "before primary", "before election"), 
+#                times = c(n3,n2, n1)), 
+#   cluster = followers_info$cluster
+# )
+# #add cluster_label, and category names #some duplicated labels give warnings
+# cluster_features$clust_label = factor(cluster_features$cluster, levels = 1:150,
+#                                       labels = segments_with_label$cluster_label)
+# cluster_features$clust_label <- as.character(cluster_features$clust_label)
+# cluster_features$clust_cat <- cluster_features$clust_label
+# for( i in 1:nrow(category_names)){
+#   cluster_features$clust_cat[which(cluster_features$clust_label == category_names$cluster_label[i])] <-
+#     category_names$cluster_cat1[i]
+# }                                                    
+
 cat("cluster_features is done. \n")
 
 
@@ -124,7 +153,8 @@ cat("tweeting frequency is done. \n")
 
 followers_info <- data.frame(cluster_features, profile, calculated_features, tweet_by_user, trump_topic_features)
 # 4+ 14 + 10 +4+ 50 
-#period, "cluster", "clust_label" , "clust_cat", cluster_label #profile, 
+
+#period, "cluster", "clust_label" , "clust_cat", clust_label #profile, 
 # [20] "time_order"                                 "friends_count_samp"                        
 # [21] "retweet_trump_count"                        "id_str.1"                                  
 # [23] "count_mean_timeline"                        "count_total_timeline"                      

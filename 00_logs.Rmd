@@ -7,6 +7,7 @@ output: html_document
 ```{r global_options, evel=FALSE }
 knitr::opts_chunk$set(eval = FALSE)
 ```
+
 #April 23, 2018
 "/data/SongWang/Twitter_Campaign2016/data/friends_info/edgelist_Feb27/RData":
 The A1.Rdata, A2.Rdata, A3.RData is a little bit different from those in 17-1-prepData-followingGraph.R
@@ -81,7 +82,7 @@ sum(dailycounts$count)
 
 ```
 
-
+=======
 
 
 #July 2, 2017
@@ -179,8 +180,14 @@ coef(lm2)
 ```
 
 
+#June 28 
+update teh 0601 report
+1. Notes first version May 31, 2017
+updated on Jun 1, Jun 12, June 26, 
+
 
 #June 12, 2017
+
 1,
 ```{r}
 fr1 <- read.csv("../data/friends_info/data_friends/friends_1_info.csv", colClasses = c("character"))
@@ -594,7 +601,11 @@ Among the newly 0.8M people, about 1900 have ids same as before
 167355   3250613910       Neskuler
 10056146 3250613910 AdanFashion511
 
+<<<<<<< HEAD
+```{r, eval= FALSE}
+=======
 # ```{r, eval= FALSE}
+>>>>>>> 83cf97e34a6708af9bb1eaa0a6517390142ae824
 
 
 i1 <- match(all[3.2e6], id_sn$id_str)
@@ -1468,7 +1479,10 @@ for ( i in 72:length(SNs)){
 }
 close(conn)
 ```
+<<<<<<< HEAD
+=======
 
+>>>>>>> 83cf97e34a6708af9bb1eaa0a6517390142ae824
 In the getFriend function, the limit is well controlled. rate-limit <= 180 and friend requests limit < 15 each application. It is unlike anything will go wrong. based on rule that sleep 5 mins when ratelimit <100 -- keep check rates when there is no friends requests left. 
 My understanding is that every 45 most friends list requests, the algorithm will go through on check --
 is the rate-limit below 100. worst case,  
@@ -1493,4 +1507,8 @@ followerIDs <- followerIDs[933801:length(followerIDs)]
 followers <- getUsersBatch(ids = followerIDs, oauth_folder = my_oauth_folder, 
              include_entities = TRUE, verbose = TRUE, 
              output = paste0("../data/followers_info/jsons/",sn,"_screen-names_5-7738M.json"))
+<<<<<<< HEAD
 ```
+=======
+```
+>>>>>>> 83cf97e34a6708af9bb1eaa0a6517390142ae824

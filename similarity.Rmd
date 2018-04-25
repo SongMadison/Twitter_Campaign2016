@@ -17,6 +17,21 @@ source("function.R")
 ```
 
 
+## verifying the clsuter structure 
+
+In this part, I did the following things:
+
+1. visualize the similarity among 50 clusters in each of the three stages (clusters are ordered based on the category names)
+
+2. explore [sparseAHC](https://github.com/khabbazian/sparseAHC), algorithm doing clustering based on the similarity graph. This is trying to verified 1, the performance of the algorithms; 2, justify that the combining the 50 clusters into 8 categories is valid.
+
+3. the results: 
+  + the overlapping between sparseAHC and manually combined labels is low.
+  + the balloon plot show that the similarity among Trump supporters are realatively high.
+  
+  
+  
+
 ```{r similarity50, eval = FALSE}
  
 #some exploratory on 
@@ -63,7 +78,7 @@ table(cluster_info$clust_cat)
 ord <- NULL
 for( nn in cat_names){
   ord <- c(ord, which(cluster_info$clust_cat == nn))
-  cat(nn,length(ord), "\n")
+  #cat(nn,length(ord), "\n")
 }
 
   
@@ -110,7 +125,7 @@ table(cluster_info$clust_cat)
 ord <- NULL
 for( nn in cat_names){
   ord <- c(ord, which(cluster_info$clust_cat == nn))
-  cat(nn,length(ord), "\n")
+  #cat(nn,length(ord), "\n")
 }
   
 heatmap(as.matrix(S2), main = "using original cluster id")
@@ -155,7 +170,7 @@ table(cluster_info$clust_cat)
 ord <- NULL
 for( nn in cat_names){
   ord <- c(ord, which(cluster_info$clust_cat == nn))
-  cat(nn,length(ord), "\n")
+  #cat(nn,length(ord), "\n")
 }
 
   
