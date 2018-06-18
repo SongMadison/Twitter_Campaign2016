@@ -641,7 +641,27 @@ membershipM <- function(labs){
   }
   return(Z)
 }
-
+membershipZ_cat <- function(labs){
+    if (sum(is.na(labs)) >0){
+        hasNA <- TRUE
+        levels = unique(labs[!is.na(labs)])
+        Z <- matrix(0, length(labs), length(levels)+1)
+        Z[which(is.na(labs)), length(levels)+1] <- 1
+    }else{
+        levels = unique(labs)
+        Z <- matrix(0, length(labs), length(levels))
+    }
+    for (i in 1:length(levels)){
+        Z[labs == levels[i],i]<-1
+    }
+    if (hasNA){
+        colnames(Z) <- c(levels,"_NA_")
+    }else{
+        colnames(Z) <- levels
+    }
+    return (Z)
+    
+}
 
 
 

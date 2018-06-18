@@ -8,6 +8,57 @@ output: html_document
 knitr::opts_chunk$set(eval = FALSE)
 ```
 
+
+#June 17, 2018
+1, try to run R in jupyter notebook, not successful yet.
+conda install -c r ipython-notebook r-irkernel
+install R in jupyter notebook  
+-- https://discuss.analyticsvidhya.com/t/how-to-run-r-on-jupyter-ipython-notebooks/5512
+
+conda install -c r r-essentials 
+# this will install 
+#see https://github.com/ContinuumIO/anaconda-issues/issues/1133
+#conda update -c r r-essentials
+
+
+#April 28, 2018
+
+### relationships, total occurences
+-rw-rw-r-- 1 songwang songwang 7.7G Apr 29 02:31 edgelist_retweet.csv
+-rw-rw-r-- 1 songwang songwang 986M Apr 29 02:40 edgelist_quoted.csv
+-rw-rw-r-- 1 songwang songwang 6.3G Apr 29 02:49 edgelist_replied.csv
+peach:relationships$ for file in *; do wc -l $file ; done
+21,067,763 edgelist_quoted.csv
+103,110,081 edgelist_replied.csv
+217,543,781 edgelist_retweet.csv
+
+### create the relationship edge list among users based on following, retweeting, replying
+
+21067763 edgelist_quoted.csv
+103110081 edgelist_replied.csv
+217543781 edgelist_retweet.csv
+21067763 el_users_quoted.csv
+217543781 el_users_retweet.csv
+103110081 el_user_sreplied.csv
+
+total 31G
+-rw-rw-r-- 1 songwang songwang 7.7G Apr 29 02:31 edgelist_retweet.csv
+-rw-rw-r-- 1 songwang songwang 6.3G Apr 29 02:49 edgelist_replied.csv
+-rw-rw-r-- 1 songwang songwang 986M Apr 29 04:07 edgelist_quoted.csv
+-rw-rw-r-- 1 songwang songwang 8.3G Apr 29 13:15 el_users_retweet.csv
+-rw-rw-r-- 1 songwang songwang 6.2G Apr 29 13:16 el_users_replied.csv
+-rw-rw-r-- 1 songwang songwang 959M Apr 29 13:46 el_users_quoted.csv
+
+
+
+### next step, we need to do construct the retweeting graph 
+#### - among users period 1, 2, 3
+#### - remove certain users both columnwise and row-wise
+
+
+need to narrow down to people and 
+
+
 #April 23, 2018
 "/data/SongWang/Twitter_Campaign2016/data/friends_info/edgelist_Feb27/RData":
 The A1.Rdata, A2.Rdata, A3.RData is a little bit different from those in 17-1-prepData-followingGraph.R
